@@ -7,9 +7,9 @@ import {
   deleteNatGateway,
   deleteRouteTable,
   deleteSecurityGroup,
+  deleteSecurityGroupRules,
   deleteSubnet,
   deleteVpc,
-  getSecurityGroupDependencies,
 } from "./resources/ec2.js";
 import { deleteRepository } from "./resources/ecr.js";
 import { deleteCluster, deleteService, deleteTaskDefinition } from "./resources/ecs.js";
@@ -53,8 +53,11 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   },
   "ec2.security-group": {
     description: "EC2 Security Group",
-    dependencyEnumerator: getSecurityGroupDependencies,
     destroyer: deleteSecurityGroup,
+  },
+  "ec2.security-group-rules": {
+    description: "EC2 Security Group Rules",
+    destroyer: deleteSecurityGroupRules,
   },
   "ec2.subnet": {
     description: "EC2 Subnet",

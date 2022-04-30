@@ -4,6 +4,8 @@ const resourceTypes = [
   "ec2.natgateway",
   "ec2.route-table",
   "ec2.security-group",
+  // synthetic resource type used delete rules before groups
+  "ec2.security-group-rules",
   "ec2.subnet",
   "ec2.vpc",
   "ec2.vpc-flow-log",

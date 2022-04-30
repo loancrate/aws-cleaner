@@ -8,6 +8,7 @@ import {
   DeleteVpcCommand,
   DescribeInternetGatewaysCommand,
   DescribeRouteTablesCommand,
+  DescribeSecurityGroupRulesCommand,
   DescribeSecurityGroupsCommand,
   DetachInternetGatewayCommand,
   DisassociateRouteTableCommand,
@@ -15,13 +16,18 @@ import {
   InternetGateway,
   IpPermission,
   ReleaseAddressCommand,
+  RevokeSecurityGroupEgressCommand,
+  RevokeSecurityGroupIngressCommand,
   RouteTable,
   SecurityGroup,
+  SecurityGroupRule,
 } from "@aws-sdk/client-ec2";
 import { setTimeout } from "timers/promises";
 import { getErrorCode } from "../awserror.js";
+import { DependencyEnumeratorParams } from "../DependencyEnumerator.js";
 import logger from "../logger.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { isNotNull } from "../typeutil.js";
 
 const detachPollMs = 1000;
 
@@ -79,14 +85,14 @@ export async function deleteInternetGateway({
   await client.send(command);
 }
 
-export async function describeInternetGateways(gatewayId: string): Promise<InternetGateway | undefined> {
+async function describeInternetGateways(gatewayId: string): Promise<InternetGateway | undefined> {
   const client = new EC2Client({});
   const command = new DescribeInternetGatewaysCommand({ InternetGatewayIds: [gatewayId] });
   const response = await client.send(command);
   return response.InternetGateways?.[0];
 }
 
-export async function detachInternetGateway(gatewayId: string, vpcId: string): Promise<void> {
+async function detachInternetGateway(gatewayId: string, vpcId: string): Promise<void> {
   const client = new EC2Client({});
   const command = new DetachInternetGatewayCommand({ InternetGatewayId: gatewayId, VpcId: vpcId });
   await client.send(command);
@@ -136,14 +142,14 @@ export async function deleteRouteTable({ resourceId }: Pick<ResourceDestroyerPar
   }
 }
 
-export async function describeRouteTable(routeTableId: string): Promise<RouteTable | undefined> {
+async function describeRouteTable(routeTableId: string): Promise<RouteTable | undefined> {
   const client = new EC2Client({});
   const command = new DescribeRouteTablesCommand({ RouteTableIds: [routeTableId] });
   const response = await client.send(command);
   return response.RouteTables?.[0];
 }
 
-export async function disassociateRouteTable(associationId: string): Promise<void> {
+async function disassociateRouteTable(associationId: string): Promise<void> {
   const client = new EC2Client({});
   const command = new DisassociateRouteTableCommand({ AssociationId: associationId });
   await client.send(command);
@@ -156,7 +162,7 @@ export async function deleteSecurityGroup({ resourceId }: Pick<ResourceDestroyer
   await client.send(command);
 }
 
-export async function describeSecurityGroups(groupIds: string[]): Promise<SecurityGroup[]> {
+async function describeSecurityGroups(groupIds: string[]): Promise<SecurityGroup[]> {
   const client = new EC2Client({});
   const command = new DescribeSecurityGroupsCommand({ GroupIds: groupIds });
   const response = await client.send(command);
@@ -166,7 +172,7 @@ export async function describeSecurityGroups(groupIds: string[]): Promise<Securi
 
 export async function getSecurityGroupDependencies({
   resourceId,
-}: Pick<ResourceDestroyerParams, "resourceId">): Promise<string[]> {
+}: Pick<DependencyEnumeratorParams, "resourceId">): Promise<string[]> {
   const fullDeps = new Set<string>([resourceId]);
   const sg = (await describeSecurityGroups([resourceId]))?.[0];
   if (sg) {
@@ -204,6 +210,45 @@ function addSecurityGroupDependencies(
       }
     }
   }
+}
+
+export async function deleteSecurityGroupRules({
+  resourceId,
+}: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  const rules = await describeSecurityGroupRules(resourceId);
+  const ingressRuleIds = rules
+    .filter((r) => !r.IsEgress)
+    .map((r) => r.SecurityGroupRuleId)
+    .filter(isNotNull);
+  if (ingressRuleIds.length > 0) {
+    revokeSecurityGroupIngress(resourceId, ingressRuleIds);
+  }
+  const egressRuleIds = rules
+    .filter((r) => r.IsEgress)
+    .map((r) => r.SecurityGroupRuleId)
+    .filter(isNotNull);
+  if (egressRuleIds.length > 0) {
+    revokeSecurityGroupEgress(resourceId, egressRuleIds);
+  }
+}
+
+async function describeSecurityGroupRules(groupId: string): Promise<SecurityGroupRule[]> {
+  const client = new EC2Client({});
+  const command = new DescribeSecurityGroupRulesCommand({ Filters: [{ Name: "group-id", Values: [groupId] }] });
+  const response = await client.send(command);
+  return response.SecurityGroupRules || [];
+}
+
+async function revokeSecurityGroupIngress(GroupId: string, SecurityGroupRuleIds: string[]): Promise<void> {
+  const client = new EC2Client({});
+  const command = new RevokeSecurityGroupIngressCommand({ GroupId, SecurityGroupRuleIds });
+  await client.send(command);
+}
+
+async function revokeSecurityGroupEgress(GroupId: string, SecurityGroupRuleIds: string[]): Promise<void> {
+  const client = new EC2Client({});
+  const command = new RevokeSecurityGroupEgressCommand({ GroupId, SecurityGroupRuleIds });
+  await client.send(command);
 }
 
 export async function deleteSubnet({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {

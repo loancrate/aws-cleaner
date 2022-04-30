@@ -3,13 +3,13 @@ import { asError } from "catch-unknown";
 import "dotenv/config";
 import { readFile, stat, writeFile } from "fs/promises";
 import { setImmediate } from "timers/promises";
-import { parseArn } from "./arn.js";
+import { ArnFields, parseArn } from "./arn.js";
 import { compareNumericString } from "./compare.js";
 import { getPullRequestNumbers, PullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
 import { pollPredicate } from "./poll.js";
 import { getResourceHandler } from "./ResourceHandler.js";
-import { isResourceType } from "./ResourceType.js";
+import { isResourceType, ResourceType } from "./ResourceType.js";
 import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
 import { SchedulerBuilder, Task } from "./scheduler.js";
 import { getTerraformWorkspaces, TerraformWorkspace } from "./tfe.js";
@@ -107,6 +107,44 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+interface ParsedResource extends Resource {
+  arnFields: ArnFields;
+}
+
+async function addTask(
+  { arn, arnFields, environment }: ParsedResource,
+  resourceType: ResourceType,
+  schedulerBuilder: SchedulerBuilder
+) {
+  const { resourceId } = arnFields;
+  const { description, destroyer } = getResourceHandler(resourceType);
+  if (destroyer) {
+    let task: Task;
+    if (dryRun) {
+      task = () => {
+        logger.info(`${environment}: Would destroy ${description} ${resourceId}`);
+        return setImmediate();
+      };
+    } else {
+      task = async () => {
+        logger.info(`${environment}: Destroying ${description} ${resourceId}...`);
+        try {
+          await destroyer({ arn, ...arnFields, poller: pollPredicate });
+          logger.info(`${environment}: Destroyed ${description} ${resourceId}`);
+        } catch (err) {
+          logger.error(`${environment}: Error destroying ${description} ${resourceId}: ${asError(err).message}`);
+          throw err;
+        }
+      };
+    }
+    schedulerBuilder.addTask(task, {
+      partitionKey: environment,
+      category: resourceType,
+      sortKey: resourceId,
+    });
+  }
+}
+
 try {
   let resources: Resource[];
   if (resourcesJsonFile && (await fileExists(resourcesJsonFile))) {
@@ -150,9 +188,9 @@ try {
   for (const resource of resources) {
     const { arn, environment } = resource;
     // save some envs for end-to-end testing
-    if (environment >= "pr-1800") continue;
+    if (environment >= "pr-1850") continue;
     const arnFields = parseArn(arn);
-    const { service, resourceType: subtype, resourceId } = arnFields;
+    const { service, resourceType: subtype } = arnFields;
     if (ignoreResourceTypes.has(service)) continue;
     const resourceType = subtype ? `${service}.${subtype}` : service;
     if (ignoreResourceTypes.has(resourceType)) continue;
@@ -165,38 +203,11 @@ try {
       }
       continue;
     }
-    const { description, dependencyEnumerator, destroyer } = getResourceHandler(resourceType);
-    if (dependencyEnumerator) {
-      const dependencies = await dependencyEnumerator({ arn, ...arnFields });
-      if (dependencies.length) {
-        const depList = dependencies.join(", ");
-        logger.info(`${environment}: Found dependencies for ${description} ${resourceId}: ${depList}`);
-      }
-    }
-    if (destroyer) {
-      let task: Task;
-      if (dryRun) {
-        task = () => {
-          logger.info(`${environment}: Would destroy ${description} ${resourceId}`);
-          return setImmediate();
-        };
-      } else {
-        task = async () => {
-          logger.info(`${environment}: Destroying ${description} ${resourceId}...`);
-          try {
-            await destroyer({ arn, ...arnFields, poller: pollPredicate });
-            logger.info(`${environment}: Destroyed ${description} ${resourceId}`);
-          } catch (err) {
-            logger.error(`${environment}: Error destroying ${description} ${resourceId}: ${asError(err).message}`);
-            throw err;
-          }
-        };
-      }
-      schedulerBuilder.addTask(task, {
-        partitionKey: environment,
-        category: resourceType,
-        sortKey: resourceId,
-      });
+    await addTask({ arn, arnFields, environment }, resourceType, schedulerBuilder);
+
+    // untangle dependencies among security groups by deleting all their rules first
+    if (resourceType === "ec2.security-group") {
+      await addTask({ arn, arnFields, environment }, "ec2.security-group-rules", schedulerBuilder);
     }
   }
 
@@ -212,6 +223,7 @@ try {
     process.exit(1);
   }
 
+  // TODO: request rate limiting
   const scheduler = schedulerBuilder.build();
   await scheduler.execute({ maximumConcurrency, continueAfterErrors });
 } catch (err) {
