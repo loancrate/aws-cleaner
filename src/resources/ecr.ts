@@ -10,14 +10,23 @@ import { getErrorCode } from "../awserror.js";
 import logger from "../logger.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 
+let client: ECRClient | undefined;
+
+function getClient(): ECRClient {
+  if (!client) {
+    client = new ECRClient({});
+  }
+  return client;
+}
+
 async function deleteImages(repositoryName: string, imageIds: ImageIdentifier[]): Promise<void> {
-  const client = new ECRClient({});
+  const client = getClient();
   const command = new BatchDeleteImageCommand({ repositoryName, imageIds });
   await client.send(command);
 }
 
 async function listImages(repositoryName: string, nextToken?: string): Promise<ListImagesCommandOutput> {
-  const client = new ECRClient({});
+  const client = getClient();
   const command = new ListImagesCommand({ repositoryName, nextToken });
   return await client.send(command);
 }
@@ -33,7 +42,7 @@ export async function deleteRepository({ resourceId }: Pick<ResourceDestroyerPar
       if (!nextToken) break;
     }
 
-    const client = new ECRClient({});
+    const client = getClient();
     const command = new DeleteRepositoryCommand({ repositoryName: resourceId });
     await client.send(command);
   } catch (err) {

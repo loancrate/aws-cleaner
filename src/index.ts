@@ -1,24 +1,26 @@
-import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
 import { asError } from "catch-unknown";
 import "dotenv/config";
-import { readFile, stat, writeFile } from "fs/promises";
 import { setImmediate } from "timers/promises";
 import { ArnFields, parseArn } from "./arn.js";
-import { compareNumericString } from "./compare.js";
-import { getPullRequestNumbers, PullRequestNumbers } from "./github.js";
+import { getErrorMessage } from "./awserror.js";
+import { Cache } from "./cache.js";
+import { compare, compareNumericString } from "./compare.js";
+import { EnvironmentFilter, getClosedPREnvironmentFilter, getEnvironmentFromName } from "./filter.js";
+import { getPullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
-import { pollPredicate } from "./poll.js";
+import { getPoller } from "./poll.js";
 import { getResourceHandler } from "./ResourceHandler.js";
+import { listRoles, listRoleTags } from "./resources/iam.js";
+import { getResources } from "./resources/tagging.js";
 import { isResourceType, ResourceType } from "./ResourceType.js";
 import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
 import { SchedulerBuilder, Task } from "./scheduler.js";
-import { getTerraformWorkspaces, TerraformWorkspace } from "./tfe.js";
+import { getTerraformWorkspaces } from "./tfe.js";
 
 const dryRun = false;
 const ignoreResourceTypes = new Set<string>();
 const maximumConcurrency = 20;
 const continueAfterErrors = false;
-const resourcesJsonFile = "resources.json";
 
 const { GITHUB_TOKEN, TERRAFORM_CLOUD_TOKEN } = process.env;
 
@@ -26,53 +28,52 @@ const GITHUB_OWNER = "loancrate";
 const GITHUB_REPOSITORY = "loancrate";
 const TERRAFORM_CLOUD_ORGANIZATION = "loancrate";
 
-type EnvironmentFilter = (env: string) => boolean;
-
-function getClosedPREnvironmentFilter(
-  prNumbers: PullRequestNumbers,
-  workspaces: TerraformWorkspace[]
-): EnvironmentFilter {
-  const { openPRs, lastPR } = prNumbers;
-  return (env: string): boolean => {
-    const match = /^pr-(\d+)$/i.exec(env);
-    if (match) {
-      const number = parseInt(match[1]);
-      return number <= lastPR && !openPRs.includes(number) && !workspaces.some((ws) => ws.name.includes(env));
-    }
-    return false;
-  };
-}
-
 interface Resource {
   arn: string;
   environment: string;
 }
 
-async function getEnvironmentResources(envFilter: EnvironmentFilter): Promise<Resource[]> {
+async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cache): Promise<Resource[]> {
   const result: Resource[] = [];
-  const rgtClient = new ResourceGroupsTaggingAPIClient({});
-  for (let PaginationToken: string | undefined, count = 0; ; ) {
-    const command = new GetResourcesCommand({
-      PaginationToken,
-      ResourcesPerPage: 100,
-    });
-    const response = await rgtClient.send(command);
-    if (response.ResourceTagMappingList) {
-      const resources = response.ResourceTagMappingList;
-      count += resources.length;
-      for (const resource of resources) {
-        if (!resource.ResourceARN) continue;
-        const environment = resource.Tags?.find((tag) => tag.Key === "Environment")?.Value;
-        if (environment && envFilter(environment)) {
-          result.push({ arn: resource.ResourceARN, environment });
-        }
-      }
-      logger.debug(`Fetched ${count} resources, ${result.length} from closed PRs`);
-    }
-    PaginationToken = response.PaginationToken;
-    if (!PaginationToken) break;
+
+  let resources = cache.getTaggedResources();
+  if (!resources) {
+    resources = await getResources();
+    cache.setTaggedResources(resources);
   }
-  // TODO: get IAM roles
+
+  let foundResources = 0;
+  for (const resource of resources) {
+    const environment = resource.Tags?.find((tag) => tag.Key === "Environment")?.Value;
+    if (environment && envFilter(environment)) {
+      result.push({ arn: resource.ResourceARN, environment });
+      ++foundResources;
+    }
+  }
+  logger.debug(`Found ${foundResources} resources from closed PRs`);
+
+  let roles = cache.getRoles();
+  if (!roles) {
+    roles = await listRoles();
+    cache.setRoles(roles);
+  }
+
+  let foundRoles = 0;
+  for (const role of roles) {
+    if (role.RoleName.startsWith("AWS")) continue;
+    let environment = getEnvironmentFromName(role.RoleName);
+    if (environment == null) {
+      const tags = await listRoleTags(role.RoleName);
+      logger.debug({ tags }, `Fetched tags for role ${role.RoleName}`);
+      environment = tags.find((tag) => tag.Key === "Environment")?.Value;
+    }
+    if (environment && envFilter(environment)) {
+      result.push({ arn: role.Arn, environment });
+      ++foundRoles;
+    }
+  }
+  logger.debug(`Found ${foundRoles} roles from closed PRs`);
+
   return result;
 }
 
@@ -87,7 +88,7 @@ function summarizeResources(resources: Resource[]): void {
     environmentCounts.set(environment, (environmentCounts.get(environment) ?? 0) + 1);
   }
   logger.info("Resource types:");
-  for (const [type, count] of typeCounts.entries()) {
+  for (const [type, count] of Array.from(typeCounts.entries()).sort((a, b) => compare(a[0], b[0]))) {
     logger.info(`  ${type}: ${count}`);
   }
   logger.info("Environments:");
@@ -98,23 +99,17 @@ function summarizeResources(resources: Resource[]): void {
   }
 }
 
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-
 interface ParsedResource extends Resource {
   arnFields: ArnFields;
 }
 
+const poller = getPoller();
+
 async function addTask(
   { arn, arnFields, environment }: ParsedResource,
   resourceType: ResourceType,
-  schedulerBuilder: SchedulerBuilder
+  schedulerBuilder: SchedulerBuilder,
+  cache: Cache
 ) {
   const { resourceId } = arnFields;
   const { description, destroyer } = getResourceHandler(resourceType);
@@ -129,10 +124,15 @@ async function addTask(
       task = async () => {
         logger.info(`${environment}: Destroying ${description} ${resourceId}...`);
         try {
-          await destroyer({ arn, ...arnFields, poller: pollPredicate });
+          await destroyer({ arn, ...arnFields, poller });
+          if (resourceType === "iam.role") {
+            cache.deleteRole(arn);
+          } else {
+            cache.deleteTaggedResource(arn);
+          }
           logger.info(`${environment}: Destroyed ${description} ${resourceId}`);
         } catch (err) {
-          logger.error(`${environment}: Error destroying ${description} ${resourceId}: ${asError(err).message}`);
+          logger.error(`${environment}: Error destroying ${description} ${resourceId}: ${getErrorMessage(err)}`);
           throw err;
         }
       };
@@ -145,41 +145,40 @@ async function addTask(
   }
 }
 
+const cache = new Cache();
+await cache.load();
 try {
-  let resources: Resource[];
-  if (resourcesJsonFile && (await fileExists(resourcesJsonFile))) {
-    logger.info(`Loading resources from ${resourcesJsonFile}`);
-    resources = JSON.parse(await readFile(resourcesJsonFile, "utf8"));
-  } else {
-    if (!GITHUB_TOKEN) {
-      throw new Error("GITHUB_TOKEN not set");
-    }
+  let workspaces = cache.getWorkspaces();
+  if (!workspaces) {
     if (!TERRAFORM_CLOUD_TOKEN) {
       throw new Error("TERRAFORM_CLOUD_TOKEN not set");
     }
-
-    const workspaces = await getTerraformWorkspaces({
+    workspaces = await getTerraformWorkspaces({
       token: TERRAFORM_CLOUD_TOKEN,
       organization: TERRAFORM_CLOUD_ORGANIZATION,
     });
-    logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
+    cache.setWorkspaces(workspaces);
+  }
+  logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
 
-    const prNumbers = await getPullRequestNumbers({
+  let prNumbers = cache.getPullRequests();
+  if (!prNumbers) {
+    if (!GITHUB_TOKEN) {
+      throw new Error("GITHUB_TOKEN not set");
+    }
+    prNumbers = await getPullRequestNumbers({
       token: GITHUB_TOKEN,
       owner: GITHUB_OWNER,
       repository: GITHUB_REPOSITORY,
     });
-    logger.info(`Open PRs: ${prNumbers.openPRs.join(", ")}`);
-    logger.info(`Last PR: ${prNumbers.lastPR}`);
-
-    const closedPRFilter = getClosedPREnvironmentFilter(prNumbers, workspaces);
-
-    resources = await getEnvironmentResources(closedPRFilter);
-    if (resourcesJsonFile) {
-      logger.info(`Saving resources to ${resourcesJsonFile}`);
-      await writeFile(resourcesJsonFile, JSON.stringify(resources));
-    }
+    cache.setPullRequests(prNumbers);
   }
+  logger.info(`Open PRs: ${prNumbers.openPRs.join(", ")}`);
+  logger.info(`Last PR: ${prNumbers.lastPR}`);
+
+  const closedPRFilter = getClosedPREnvironmentFilter(prNumbers, workspaces);
+
+  const resources = await getEnvironmentResources(closedPRFilter, cache);
 
   summarizeResources(resources);
 
@@ -187,8 +186,6 @@ try {
   const unrecognizedResourceTypeArns = new Map<string, string[]>();
   for (const resource of resources) {
     const { arn, environment } = resource;
-    // save some envs for end-to-end testing
-    if (environment >= "pr-1850") continue;
     const arnFields = parseArn(arn);
     const { service, resourceType: subtype } = arnFields;
     if (ignoreResourceTypes.has(service)) continue;
@@ -203,11 +200,11 @@ try {
       }
       continue;
     }
-    await addTask({ arn, arnFields, environment }, resourceType, schedulerBuilder);
+    await addTask({ arn, arnFields, environment }, resourceType, schedulerBuilder, cache);
 
     // untangle dependencies among security groups by deleting all their rules first
     if (resourceType === "ec2.security-group") {
-      await addTask({ arn, arnFields, environment }, "ec2.security-group-rules", schedulerBuilder);
+      await addTask({ arn, arnFields, environment }, "ec2.security-group-rules", schedulerBuilder, cache);
     }
   }
 
@@ -223,10 +220,11 @@ try {
     process.exit(1);
   }
 
-  // TODO: request rate limiting
   const scheduler = schedulerBuilder.build();
   await scheduler.execute({ maximumConcurrency, continueAfterErrors });
 } catch (err) {
   logger.error(asError(err).message);
   process.exit(1);
+} finally {
+  await cache.save();
 }

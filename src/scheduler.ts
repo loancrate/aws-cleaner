@@ -69,15 +69,12 @@ export class SchedulerBuilder {
       const dependentCategories = category ? this.categoryDependencies[category] : [];
       if (dependentCategories.length > 0) {
         const transitiveCategories = getTransitiveClosure(this.categoryDependencies, dependentCategories);
-        logger.debug({ groupKey, dependentCategories, transitiveCategories }, `Resolved transitive dependencies`);
         // find any existing groups from dependent categories
         const depGroups = transitiveCategories.reduce<ExecutionGroup[]>((acc, depCat) => {
           const depKey = makeGroupKey(partitionKey, depCat);
           const group = executionGroups.get(depKey);
           if (group) {
             acc.push(group);
-          } else {
-            logger.debug({ groupKey, depKey }, `No dependent group found`);
           }
           return acc;
         }, []);
@@ -144,46 +141,80 @@ export interface SchedulerOptions {
 }
 
 export class Scheduler {
+  private readonly runningTasks: Promise<unknown>[] = [];
+  private aborting = false;
+
   public constructor(private readonly runnableGroups: ExecutionGroup[]) {}
 
-  public async execute({ maximumConcurrency = 20, continueAfterErrors = false }: SchedulerOptions = {}) {
-    const runningTasks: Promise<unknown>[] = [];
-    let aborting = false;
-    let group: ExecutionGroup | undefined;
-    while (!aborting && (group = this.runnableGroups.shift())) {
-      const { partitionKey, category, pendingTasks } = group;
-      const groupKey = makeGroupKey(partitionKey, category);
-      for (const task of pendingTasks) {
-        group.runningTaskCount = (group.runningTaskCount || 0) + 1;
-        const taskGroup = group;
-        const runningTask = task()
-          .catch(() => {
-            if (!continueAfterErrors) aborting = true;
-          })
-          .finally(() => {
-            if (--taskGroup.runningTaskCount! && !aborting && taskGroup.notifyGroups) {
-              for (const notifyGroup of taskGroup.notifyGroups) {
-                if (notifyGroup.waitingOnGroupKeys) {
-                  const index = notifyGroup.waitingOnGroupKeys.indexOf(groupKey);
-                  if (index >= 0) {
-                    notifyGroup.waitingOnGroupKeys.splice(index, 1);
-                    if (notifyGroup.waitingOnGroupKeys.length === 0) {
-                      this.runnableGroups.push(notifyGroup);
-                    }
-                  }
-                }
-              }
-            }
-            const index = runningTasks.indexOf(runningTask);
-            runningTasks.splice(index, 1);
-          });
-        runningTasks.push(runningTask);
-        if (runningTasks.length >= maximumConcurrency) {
-          await Promise.race(runningTasks);
-          if (aborting) break;
-        }
+  public async execute(options: SchedulerOptions = {}) {
+    for (;;) {
+      // start all currently runnable groups
+      let group: ExecutionGroup | undefined;
+      while (!this.aborting && (group = this.runnableGroups.shift())) {
+        await this.startGroup(group, options);
+      }
+
+      if (this.aborting || !this.runningTasks.length) break;
+
+      // each time a task completes, check for new runnable groups
+      await Promise.race(this.runningTasks);
+    }
+
+    // in case of abort, just wait for already running tasks
+    await Promise.allSettled(this.runningTasks);
+  }
+
+  private async startGroup(
+    group: ExecutionGroup,
+    { maximumConcurrency = 20, continueAfterErrors = false }: SchedulerOptions
+  ): Promise<void> {
+    const { partitionKey, category, pendingTasks } = group;
+    const groupKey = makeGroupKey(partitionKey, category);
+    for (const task of pendingTasks) {
+      group.runningTaskCount = (group.runningTaskCount || 0) + 1;
+      const runningTask = task()
+        .catch(() => {
+          if (!continueAfterErrors) this.aborting = true;
+        })
+        .finally(() => {
+          if (--group.runningTaskCount! === 0 && !this.aborting) {
+            this.notifyGroupCompletion(group, groupKey);
+          }
+          deleteArrayElement(this.runningTasks, runningTask);
+        });
+      this.runningTasks.push(runningTask);
+
+      if (this.runningTasks.length >= maximumConcurrency) {
+        await Promise.race(this.runningTasks);
+        if (this.aborting) break;
       }
     }
-    await Promise.allSettled(runningTasks);
   }
+
+  private notifyGroupCompletion(group: ExecutionGroup, groupKey: string): void {
+    if (group.notifyGroups) {
+      for (const notifyGroup of group.notifyGroups) {
+        const notifyGroupKey = makeGroupKey(notifyGroup.partitionKey, notifyGroup.category);
+        let msg = `Notifying ${notifyGroupKey} of ${groupKey} completion`;
+        if (
+          notifyGroup.waitingOnGroupKeys &&
+          deleteArrayElement(notifyGroup.waitingOnGroupKeys, groupKey) &&
+          notifyGroup.waitingOnGroupKeys.length === 0
+        ) {
+          this.runnableGroups.push(notifyGroup);
+          msg += " and queuing it for execution";
+        }
+        logger.debug(msg);
+      }
+    }
+  }
+}
+
+function deleteArrayElement<T>(arr: T[], element: T): boolean {
+  const index = arr.indexOf(element);
+  if (index >= 0) {
+    arr.splice(index, 1);
+    return true;
+  }
+  return false;
 }
