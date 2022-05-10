@@ -2,6 +2,7 @@
   "name": "aws-cleaner",
   "version": "1.0.0",
   "description": "AWS Resource Cleaner",
+  "license": "ISC",
   "author": {
     "name": "Trevor Robinson"
   },
