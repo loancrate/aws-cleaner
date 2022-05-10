@@ -1,3 +1,4 @@
+import { Tag } from "@aws-sdk/client-iam";
 import { asError } from "catch-unknown";
 import { readFile, stat, writeFile } from "fs/promises";
 import os from "os";
@@ -14,6 +15,12 @@ const filename = "aws-cleaner.json";
 const workspacesValidityMs = 15 * 60 * 1000;
 const pullRequestsValidityMs = 15 * 60 * 1000;
 const resourcesValidityMs = 15 * 60 * 1000;
+const roleTagsValidityMs = 24 * 60 * 60 * 1000;
+
+interface RoleTags {
+  tags: Tag[];
+  date: string;
+}
 
 interface CacheData {
   workspaces?: TerraformWorkspace[];
@@ -27,6 +34,8 @@ interface CacheData {
 
   roles?: ListRole[];
   rolesDate?: string;
+
+  roleTags?: Record<string, RoleTags>;
 }
 
 interface CacheFile extends CacheData {
@@ -68,6 +77,11 @@ export class Cache {
       };
       const path = this.getPath();
       try {
+        this.getWorkspaces();
+        this.getPullRequests();
+        this.getTaggedResources();
+        this.getRoles();
+        this.deleteExpiredRoleTags();
         await writeFile(path, JSON.stringify(file, undefined, 2));
         this.dirty = false;
         logger.debug(`Saved cache to ${path}`);
@@ -80,12 +94,14 @@ export class Cache {
   public getWorkspaces(): TerraformWorkspace[] | undefined {
     const { workspaces, workspacesDate } = this.data;
     if (workspaces && workspacesDate) {
-      const date = new Date(workspacesDate);
-      if (Date.now() - date.valueOf() <= workspacesValidityMs) {
+      if (isValid(workspacesDate, workspacesValidityMs)) {
         logger.debug("Got workspaces from cache");
         return workspaces;
       } else {
         logger.debug(`Cached workspaces expired: ${workspacesDate}`);
+        delete this.data.workspaces;
+        delete this.data.workspacesDate;
+        this.dirty = true;
       }
     }
   }
@@ -99,12 +115,14 @@ export class Cache {
   public getPullRequests(): PullRequestNumbers | undefined {
     const { pullRequests, pullRequestsDate } = this.data;
     if (pullRequests && pullRequestsDate) {
-      const date = new Date(pullRequestsDate);
-      if (Date.now() - date.valueOf() <= pullRequestsValidityMs) {
+      if (isValid(pullRequestsDate, pullRequestsValidityMs)) {
         logger.debug("Got pull requests from cache");
         return pullRequests;
       } else {
         logger.debug(`Cached pull requests expired: ${pullRequestsDate}`);
+        delete this.data.pullRequests;
+        delete this.data.pullRequestsDate;
+        this.dirty = true;
       }
     }
   }
@@ -118,12 +136,14 @@ export class Cache {
   public getTaggedResources(): ResourceTagMappingWithArn[] | undefined {
     const { taggedResources, taggedResourcesDate } = this.data;
     if (taggedResources && taggedResourcesDate) {
-      const date = new Date(taggedResourcesDate);
-      if (Date.now() - date.valueOf() <= resourcesValidityMs) {
+      if (isValid(taggedResourcesDate, resourcesValidityMs)) {
         logger.debug("Got resources from cache");
         return taggedResources;
       } else {
         logger.debug(`Cached resources expired: ${taggedResourcesDate}`);
+        delete this.data.taggedResources;
+        delete this.data.taggedResourcesDate;
+        this.dirty = true;
       }
     }
   }
@@ -145,12 +165,14 @@ export class Cache {
   public getRoles(): ListRole[] | undefined {
     const { roles, rolesDate } = this.data;
     if (roles && rolesDate) {
-      const date = new Date(rolesDate);
-      if (Date.now() - date.valueOf() <= resourcesValidityMs) {
+      if (isValid(rolesDate, resourcesValidityMs)) {
         logger.debug("Got roles from cache");
         return roles;
       } else {
         logger.debug(`Cached roles expired: ${rolesDate}`);
+        delete this.data.roles;
+        delete this.data.rolesDate;
+        this.dirty = true;
       }
     }
   }
@@ -167,6 +189,45 @@ export class Cache {
       this.data.roles?.splice(index, 1);
       this.dirty = true;
     }
+    if (this.data.roleTags && arn in this.data.roleTags) {
+      delete this.data.roleTags[arn];
+      this.dirty = true;
+    }
+  }
+
+  public getRoleTags(arn: string): Tag[] | undefined {
+    const { roleTags } = this.data;
+    const entry = roleTags?.[arn];
+    if (entry) {
+      if (isValid(entry.date, roleTagsValidityMs)) {
+        logger.debug(`Got tags for role ${arn} from cache`);
+        return entry.tags;
+      } else {
+        logger.debug(`Cached tags for role ${arn} expired: ${entry.date}`);
+        delete roleTags[arn];
+        this.dirty = true;
+      }
+    }
+  }
+
+  public setRoleTags(arn: string, tags: Tag[]): void {
+    if (!this.data.roleTags) {
+      this.data.roleTags = {};
+    }
+    this.data.roleTags[arn] = { tags, date: new Date().toDateString() };
+    this.dirty = true;
+  }
+
+  public deleteExpiredRoleTags(): void {
+    const { roleTags } = this.data;
+    if (roleTags) {
+      for (const [arn, entry] of Object.entries(roleTags)) {
+        if (!isValid(entry.date, roleTagsValidityMs)) {
+          delete roleTags[arn];
+          this.dirty = true;
+        }
+      }
+    }
   }
 }
 
@@ -177,4 +238,8 @@ async function fileExists(path: string): Promise<boolean> {
   } catch (err) {
     return false;
   }
+}
+
+function isValid(dateString: string, validityMs: number): boolean {
+  return Date.now() - new Date(dateString).valueOf() <= validityMs;
 }

@@ -17,7 +17,7 @@ import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
 import { SchedulerBuilder, Task } from "./scheduler.js";
 import { getTerraformWorkspaces } from "./tfe.js";
 
-const dryRun = false;
+const dryRun = true;
 const ignoreResourceTypes = new Set<string>();
 const maximumConcurrency = 20;
 const continueAfterErrors = false;
@@ -50,7 +50,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
       ++foundResources;
     }
   }
-  logger.debug(`Found ${foundResources} resources from closed PRs`);
+  logger.info(`Found ${foundResources} resources matching filter`);
 
   let roles = cache.getRoles();
   if (!roles) {
@@ -63,7 +63,11 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
     if (role.RoleName.startsWith("AWS")) continue;
     let environment = getEnvironmentFromName(role.RoleName);
     if (environment == null) {
-      const tags = await listRoleTags(role.RoleName);
+      let tags = cache.getRoleTags(role.Arn);
+      if (!tags) {
+        tags = await listRoleTags(role.RoleName);
+        cache.setRoleTags(role.Arn, tags);
+      }
       logger.debug({ tags }, `Fetched tags for role ${role.RoleName}`);
       environment = tags.find((tag) => tag.Key === "Environment")?.Value;
     }
@@ -72,7 +76,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
       ++foundRoles;
     }
   }
-  logger.debug(`Found ${foundRoles} roles from closed PRs`);
+  logger.info(`Found ${foundRoles} roles matching filter`);
 
   return result;
 }
@@ -181,6 +185,8 @@ try {
   const resources = await getEnvironmentResources(closedPRFilter, cache);
 
   summarizeResources(resources);
+
+  await cache.save();
 
   const schedulerBuilder = new SchedulerBuilder(resourceTypeDependencies);
   const unrecognizedResourceTypeArns = new Map<string, string[]>();
