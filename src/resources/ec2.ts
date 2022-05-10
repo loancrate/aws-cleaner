@@ -31,7 +31,7 @@ import { getErrorCode } from "../awserror.js";
 import { DependencyEnumeratorParams } from "../DependencyEnumerator.js";
 import logger from "../logger.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { isNotNull } from "../typeutil.js";
+import { isNotNull } from "../typeUtil.js";
 
 let client: EC2Client | undefined;
 
