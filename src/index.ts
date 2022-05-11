@@ -1,7 +1,7 @@
 import { asError } from "catch-unknown";
 import "dotenv/config";
 import { setImmediate } from "timers/promises";
-import { ArnFields, parseArn } from "./arn.js";
+import { ArnFields, makeArn, parseArn } from "./arn.js";
 import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
 import { compare, compareNumericString } from "./compare.js";
@@ -10,7 +10,9 @@ import { getPullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
 import { getPoller } from "./poll.js";
 import { getResourceHandler } from "./ResourceHandler.js";
+import { listTaskDefinitionFamilies } from "./resources/ecs.js";
 import { listRoles, listRoleTags } from "./resources/iam.js";
+import { getCallerIdentity } from "./resources/sts.js";
 import { getResources } from "./resources/tagging.js";
 import { isResourceType, ResourceType } from "./ResourceType.js";
 import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
@@ -34,23 +36,23 @@ interface Resource {
 }
 
 async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cache): Promise<Resource[]> {
-  const result: Resource[] = [];
+  const resources: Resource[] = [];
 
-  let resources = cache.getTaggedResources();
-  if (!resources) {
-    resources = await getResources();
-    cache.setTaggedResources(resources);
+  let taggedResources = cache.getTaggedResources();
+  if (!taggedResources) {
+    taggedResources = await getResources();
+    cache.setTaggedResources(taggedResources);
   }
 
   let foundResources = 0;
-  for (const resource of resources) {
+  for (const resource of taggedResources) {
     const environment = resource.Tags?.find((tag) => tag.Key === "Environment")?.Value;
     if (environment && envFilter(environment)) {
-      result.push({ arn: resource.ResourceARN, environment });
+      resources.push({ arn: resource.ResourceARN, environment });
       ++foundResources;
     }
   }
-  logger.info(`Found ${foundResources} resources matching filter`);
+  logger.info(`Found ${foundResources} tagged resources matching filter`);
 
   let roles = cache.getRoles();
   if (!roles) {
@@ -72,14 +74,44 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
       environment = tags.find((tag) => tag.Key === "Environment")?.Value;
     }
     if (environment && envFilter(environment)) {
-      result.push({ arn: role.Arn, environment });
+      resources.push({ arn: role.Arn, environment });
       ++foundRoles;
     }
   }
   logger.info(`Found ${foundRoles} roles matching filter`);
 
-  return result;
+  const accountId = (await getCallerIdentity()).Account!;
+
+  let allTaskDefinitionFamilies = cache.getTaskDefinitionFamilies();
+  if (!allTaskDefinitionFamilies) {
+    allTaskDefinitionFamilies = await listTaskDefinitionFamilies();
+    cache.setTaskDefinitionFamilies(allTaskDefinitionFamilies);
+  }
+
+  let foundTaskDefinitionFamilies = 0;
+  for (const family of allTaskDefinitionFamilies) {
+    const environment = getEnvironmentFromName(family);
+    if (environment && envFilter(environment)) {
+      resources.push({
+        arn: makeArn({
+          partition: "aws",
+          service: "ecs",
+          region: "",
+          accountId,
+          resourceType: "task-definition-family",
+          resourceId: family,
+        }),
+        environment,
+      });
+      ++foundTaskDefinitionFamilies;
+    }
+  }
+  logger.info(`Found ${foundTaskDefinitionFamilies} task definition families matching filter`);
+
+  return resources;
 }
+
+const taskDefinitionFamilyType: ResourceType = "ecs.task-definition-family";
 
 function summarizeResources(resources: Resource[]): void {
   const typeCounts = new Map<string, number>();

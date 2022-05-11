@@ -36,6 +36,9 @@ interface CacheData {
   rolesDate?: string;
 
   roleTags?: Record<string, RoleTags>;
+
+  taskDefinitionFamilies?: string[];
+  taskDefinitionFamiliesDate?: string;
 }
 
 interface CacheFile extends CacheData {
@@ -227,6 +230,35 @@ export class Cache {
           this.dirty = true;
         }
       }
+    }
+  }
+
+  public getTaskDefinitionFamilies(): string[] | undefined {
+    const { taskDefinitionFamilies, taskDefinitionFamiliesDate } = this.data;
+    if (taskDefinitionFamilies && taskDefinitionFamiliesDate) {
+      if (isValid(taskDefinitionFamiliesDate, resourcesValidityMs)) {
+        logger.debug("Got task definition families from cache");
+        return taskDefinitionFamilies;
+      } else {
+        logger.debug(`Cached task definition families expired: ${taskDefinitionFamiliesDate}`);
+        delete this.data.taskDefinitionFamilies;
+        delete this.data.taskDefinitionFamiliesDate;
+        this.dirty = true;
+      }
+    }
+  }
+
+  public setTaskDefinitionFamilies(families: string[]): void {
+    this.data.taskDefinitionFamilies = families;
+    this.data.taskDefinitionFamiliesDate = new Date().toISOString();
+    this.dirty = true;
+  }
+
+  public deleteTaskDefinitionFamily(family: string): void {
+    const index = this.data.taskDefinitionFamilies?.findIndex((f) => f === family) ?? -1;
+    if (index >= 0) {
+      this.data.taskDefinitionFamilies?.splice(index, 1);
+      this.dirty = true;
     }
   }
 }

@@ -26,3 +26,9 @@ export function parseArn(arn: string): ArnFields {
   const resourceType = typedId ? idOrType : undefined;
   return { partition, service, region, accountId, resourceId, resourceType };
 }
+
+export function makeArn(fields: ArnFields, resourceTypeDelimiter = ":"): string {
+  const { partition, service, region, accountId, resourceId, resourceType } = fields;
+  const prefix = `arn:${partition}:${service}:${region}:${accountId}:`;
+  return resourceType ? `${prefix}${resourceType}${resourceTypeDelimiter}${resourceId}` : `${prefix}${resourceId}`;
+}

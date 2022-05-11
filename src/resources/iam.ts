@@ -146,10 +146,10 @@ export type ListRole = Omit<Role, "Tags"> & { Arn: string; RoleName: string };
 
 export async function listRoles(): Promise<ListRole[]> {
   const result: ListRole[] = [];
-  const iamClient = getClient();
+  const client = getClient();
   for (let Marker: string | undefined, count = 0; ; ) {
     const command = new ListRolesCommand({ Marker, MaxItems: 100 });
-    const response = await iamClient.send(command);
+    const response = await throttle(() => client.send(command));
     const roles = response.Roles;
     if (roles) {
       count += roles.length;
