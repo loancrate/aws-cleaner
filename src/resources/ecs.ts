@@ -163,12 +163,15 @@ export async function deleteTaskDefinitionFamily({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
   const taskDefArns = await listTaskDefinitions(resourceId);
-  for (const arn of taskDefArns) {
-    const revisionIndex = arn.lastIndexOf(":");
-    if (revisionIndex > 0) {
-      const revision = arn.substring(revisionIndex + 1);
-      logger.info(`Deregistering revision ${revision} of task definition ${resourceId}`);
+  if (taskDefArns.length) {
+    logger.debug(`Deregistering ${taskDefArns.length} revisions of task definition ${resourceId}`);
+    for (const arn of taskDefArns) {
+      const revisionIndex = arn.lastIndexOf(":");
+      if (revisionIndex > 0) {
+        const revision = arn.substring(revisionIndex + 1);
+        logger.info(`Deregistering revision ${revision} of task definition ${resourceId}`);
+      }
+      await deleteTaskDefinition({ resourceId: arn });
     }
-    await deleteTaskDefinition({ resourceId: arn });
   }
 }

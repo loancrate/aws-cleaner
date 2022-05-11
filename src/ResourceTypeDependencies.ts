@@ -22,7 +22,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
     "ecs.cluster",
     "ecs.task-definition",
   ],
-  "ecs.task-definition": ["ecs.task-definition", "iam.role", "logs.log-group"],
+  "ecs.task-definition": ["ecs.task-definition-family", "iam.role", "logs.log-group"],
   "ecs.task-definition-family": [],
   "elasticache.cluster": ["ec2.internet-gateway", "ec2.security-group", "elasticache.subnetgroup"],
   "elasticache.subnetgroup": ["ec2.subnet"],
