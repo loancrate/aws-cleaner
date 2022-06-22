@@ -18,6 +18,7 @@ const resourceTypes = [
   "elasticache.cluster",
   "elasticache.subnetgroup",
   "elasticloadbalancing.listener",
+  "elasticloadbalancing.listener-rule",
   "elasticloadbalancing.loadbalancer",
   "elasticloadbalancing.targetgroup",
   "iam.instance-profile",

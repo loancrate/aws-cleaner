@@ -14,7 +14,7 @@ import {
 import { deleteRepository } from "./resources/ecr.js";
 import { deleteCluster, deleteService, deleteTaskDefinition, deleteTaskDefinitionFamily } from "./resources/ecs.js";
 import { deleteCacheCluster, deleteCacheSubnetGroup } from "./resources/elasticache.js";
-import { deleteListener, deleteLoadBalancer, deleteTargetGroup } from "./resources/elasticloadbalancing.js";
+import { deleteListener, deleteListenerRule, deleteLoadBalancer, deleteTargetGroup } from "./resources/elasticloadbalancing.js";
 import { deleteInstanceProfile, deletePolicy, deleteRole } from "./resources/iam.js";
 import { deleteLogGroup } from "./resources/logs.js";
 import {
@@ -102,6 +102,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "elasticloadbalancing.listener": {
     description: "ELB Listener",
     destroyer: deleteListener,
+  },
+  "elasticloadbalancing.listener-rule": {
+    description: "ELB Listener Rule",
+    destroyer: deleteListenerRule,
   },
   "elasticloadbalancing.loadbalancer": {
     description: "ELB Load Balancer",

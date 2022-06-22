@@ -26,6 +26,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "ecs.task-definition-family": [],
   "elasticache.cluster": ["ec2.internet-gateway", "ec2.security-group", "elasticache.subnetgroup"],
   "elasticache.subnetgroup": ["ec2.subnet"],
+  "elasticloadbalancing.listener-rule": ["elasticloadbalancing.listener"],
   "elasticloadbalancing.listener": ["elasticloadbalancing.loadbalancer", "elasticloadbalancing.targetgroup"],
   "elasticloadbalancing.loadbalancer": [
     "ec2.elastic-ip",

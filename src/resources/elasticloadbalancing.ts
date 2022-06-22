@@ -1,6 +1,7 @@
 import {
   DeleteListenerCommand,
   DeleteLoadBalancerCommand,
+  DeleteRuleCommand,
   DeleteTargetGroupCommand,
   DescribeLoadBalancersCommand,
   ElasticLoadBalancingV2Client,
@@ -24,6 +25,16 @@ export async function deleteListener({ arn }: Pick<ResourceDestroyerParams, "arn
     await client.send(command);
   } catch (err) {
     if (getErrorCode(err) !== "ListenerNotFound") throw err;
+  }
+}
+
+export async function deleteListenerRule({ arn }: Pick<ResourceDestroyerParams, "arn">): Promise<void> {
+  const client = getClient();
+  const command = new DeleteRuleCommand({ RuleArn: arn });
+  try {
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "RuleNotFound") throw err;
   }
 }
 
