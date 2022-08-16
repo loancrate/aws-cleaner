@@ -101,6 +101,13 @@ export async function deleteService({
   }
 }
 
+export async function deleteTask({
+  resourceId,
+}: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
+  const [cluster, task] = resourceId.split("/", 2);
+  await stopTask(cluster, task, "Deleting task");
+}
+
 async function listTasks(cluster: string, serviceName?: string, desiredStatus?: DesiredStatus): Promise<string[]> {
   const client = getClient();
   const command = new ListTasksCommand({ cluster, serviceName, desiredStatus });

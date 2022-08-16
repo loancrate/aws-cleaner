@@ -12,6 +12,7 @@ const resourceTypes = [
   "ecr.repository",
   "ecs.cluster",
   "ecs.service",
+  "ecs.task",
   "ecs.task-definition",
   // synthetic resource type
   "ecs.task-definition-family",

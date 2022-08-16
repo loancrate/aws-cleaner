@@ -12,7 +12,7 @@ import {
   deleteVpc,
 } from "./resources/ec2.js";
 import { deleteRepository } from "./resources/ecr.js";
-import { deleteCluster, deleteService, deleteTaskDefinition, deleteTaskDefinitionFamily } from "./resources/ecs.js";
+import { deleteCluster, deleteService, deleteTask, deleteTaskDefinition, deleteTaskDefinitionFamily } from "./resources/ecs.js";
 import { deleteCacheCluster, deleteCacheSubnetGroup } from "./resources/elasticache.js";
 import { deleteListener, deleteListenerRule, deleteLoadBalancer, deleteTargetGroup } from "./resources/elasticloadbalancing.js";
 import { deleteInstanceProfile, deletePolicy, deleteRole } from "./resources/iam.js";
@@ -82,6 +82,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "ecs.service": {
     description: "ECS Service",
     destroyer: deleteService,
+  },
+  "ecs.task": {
+    description: "ECS Task",
+    destroyer: deleteTask,
   },
   "ecs.task-definition": {
     description: "ECS Task Definition",
