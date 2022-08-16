@@ -10,14 +10,14 @@ export type EnvironmentFilter = (env: string) => boolean;
 
 export function getClosedPREnvironmentFilter(
   prNumbers: PullRequestNumbers,
-  workspaces: TerraformWorkspace[]
+  workspaces?: TerraformWorkspace[]
 ): EnvironmentFilter {
   const { openPRs, lastPR } = prNumbers;
   return (env: string): boolean => {
     const match = /^pr-(\d+)$/i.exec(env);
     if (match) {
       const number = parseInt(match[1]);
-      return number <= lastPR && !openPRs.includes(number) && !workspaces.some((ws) => ws.name.includes(env));
+      return number <= lastPR && !openPRs.includes(number) && !workspaces?.some((ws) => ws.name.includes(env));
     }
     return false;
   };

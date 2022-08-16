@@ -20,6 +20,7 @@ import { SchedulerBuilder, Task } from "./scheduler.js";
 import { getTerraformWorkspaces } from "./tfe.js";
 
 const dryRun = true;
+const ignoreTerraformWorkspaces = false;
 const ignoreResourceTypes = new Set<string>();
 const maximumConcurrency = 20;
 const continueAfterErrors = false;
@@ -184,18 +185,23 @@ async function addTask(
 const cache = new Cache();
 await cache.load();
 try {
-  let workspaces = cache.getWorkspaces();
-  if (!workspaces) {
-    if (!TERRAFORM_CLOUD_TOKEN) {
-      throw new Error("TERRAFORM_CLOUD_TOKEN not set");
+  let workspaces;
+  if (!ignoreTerraformWorkspaces) {
+    workspaces = cache.getWorkspaces();
+    if (!workspaces) {
+      if (!TERRAFORM_CLOUD_TOKEN) {
+        throw new Error("TERRAFORM_CLOUD_TOKEN not set");
+      }
+      workspaces = await getTerraformWorkspaces({
+        token: TERRAFORM_CLOUD_TOKEN,
+        organization: TERRAFORM_CLOUD_ORGANIZATION,
+      });
+      cache.setWorkspaces(workspaces);
     }
-    workspaces = await getTerraformWorkspaces({
-      token: TERRAFORM_CLOUD_TOKEN,
-      organization: TERRAFORM_CLOUD_ORGANIZATION,
-    });
-    cache.setWorkspaces(workspaces);
+    logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
+  } else {
+    logger.info("Ignoring Terraform workspaces");
   }
-  logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
 
   let prNumbers = cache.getPullRequests();
   if (!prNumbers) {
