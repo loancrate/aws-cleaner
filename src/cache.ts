@@ -12,11 +12,6 @@ import { TerraformWorkspace } from "./tfe.js";
 const currentVersion = 1;
 const filename = "aws-cleaner.json";
 
-const workspacesValidityMs = 15 * 60 * 1000;
-const pullRequestsValidityMs = 15 * 60 * 1000;
-const resourcesValidityMs = 15 * 60 * 1000;
-const roleTagsValidityMs = 24 * 60 * 60 * 1000;
-
 interface RoleTags {
   tags: Tag[];
   date: string;
@@ -45,35 +40,47 @@ interface CacheFile extends CacheData {
   version: number;
 }
 
+export interface CacheConfiguration {
+  disabled: boolean;
+  workspacesTtlMs: number;
+  pullRequestsTtlMs: number;
+  resourcesTtlMs: number;
+  roleTagsTtlMs: number;
+}
+
 export class Cache {
   private data: CacheData = {};
   private dirty = false;
+
+  public constructor(private readonly config: CacheConfiguration) {}
 
   private getPath(): string {
     return path.join(os.tmpdir(), filename);
   }
 
   public async load(): Promise<void> {
-    const path = this.getPath();
-    try {
-      if (await fileExists(path)) {
-        const file = JSON.parse(await readFile(path, "utf8")) as CacheFile;
-        if (file.version === currentVersion) {
-          logger.info(`Loaded cache from ${path}`);
-          this.data = file;
-          this.dirty = false;
-          return;
+    if (!this.config.disabled) {
+      const path = this.getPath();
+      try {
+        if (await fileExists(path)) {
+          const file = JSON.parse(await readFile(path, "utf8")) as CacheFile;
+          if (file.version === currentVersion) {
+            logger.info(`Loaded cache from ${path}`);
+            this.data = file;
+            this.dirty = false;
+            return;
+          }
         }
+      } catch (err) {
+        logger.warn(`Error loading cache from ${path}: ${asError(err).message}`);
       }
-    } catch (err) {
-      logger.warn(`Error loading cache from ${path}: ${asError(err).message}`);
+      this.data = {};
+      this.dirty = false;
     }
-    this.data = {};
-    this.dirty = false;
   }
 
   public async save(): Promise<void> {
-    if (this.dirty) {
+    if (this.dirty && !this.config.disabled) {
       const file: CacheFile = {
         version: currentVersion,
         ...this.data,
@@ -97,7 +104,7 @@ export class Cache {
   public getWorkspaces(): TerraformWorkspace[] | undefined {
     const { workspaces, workspacesDate } = this.data;
     if (workspaces && workspacesDate) {
-      if (isValid(workspacesDate, workspacesValidityMs)) {
+      if (isValid(workspacesDate, this.config.workspacesTtlMs)) {
         logger.debug("Got workspaces from cache");
         return workspaces;
       } else {
@@ -118,7 +125,7 @@ export class Cache {
   public getPullRequests(): PullRequestNumbers | undefined {
     const { pullRequests, pullRequestsDate } = this.data;
     if (pullRequests && pullRequestsDate) {
-      if (isValid(pullRequestsDate, pullRequestsValidityMs)) {
+      if (isValid(pullRequestsDate, this.config.pullRequestsTtlMs)) {
         logger.debug("Got pull requests from cache");
         return pullRequests;
       } else {
@@ -139,7 +146,7 @@ export class Cache {
   public getTaggedResources(): ResourceTagMappingWithArn[] | undefined {
     const { taggedResources, taggedResourcesDate } = this.data;
     if (taggedResources && taggedResourcesDate) {
-      if (isValid(taggedResourcesDate, resourcesValidityMs)) {
+      if (isValid(taggedResourcesDate, this.config.resourcesTtlMs)) {
         logger.debug("Got resources from cache");
         return taggedResources;
       } else {
@@ -168,7 +175,7 @@ export class Cache {
   public getRoles(): ListRole[] | undefined {
     const { roles, rolesDate } = this.data;
     if (roles && rolesDate) {
-      if (isValid(rolesDate, resourcesValidityMs)) {
+      if (isValid(rolesDate, this.config.resourcesTtlMs)) {
         logger.debug("Got roles from cache");
         return roles;
       } else {
@@ -202,7 +209,7 @@ export class Cache {
     const { roleTags } = this.data;
     const entry = roleTags?.[arn];
     if (entry) {
-      if (isValid(entry.date, roleTagsValidityMs)) {
+      if (isValid(entry.date, this.config.roleTagsTtlMs)) {
         logger.debug(`Got tags for role ${arn} from cache`);
         return entry.tags;
       } else {
@@ -225,7 +232,7 @@ export class Cache {
     const { roleTags } = this.data;
     if (roleTags) {
       for (const [arn, entry] of Object.entries(roleTags)) {
-        if (!isValid(entry.date, roleTagsValidityMs)) {
+        if (!isValid(entry.date, this.config.roleTagsTtlMs)) {
           delete roleTags[arn];
           this.dirty = true;
         }
@@ -236,7 +243,7 @@ export class Cache {
   public getTaskDefinitionFamilies(): string[] | undefined {
     const { taskDefinitionFamilies, taskDefinitionFamiliesDate } = this.data;
     if (taskDefinitionFamilies && taskDefinitionFamiliesDate) {
-      if (isValid(taskDefinitionFamiliesDate, resourcesValidityMs)) {
+      if (isValid(taskDefinitionFamiliesDate, this.config.resourcesTtlMs)) {
         logger.debug("Got task definition families from cache");
         return taskDefinitionFamilies;
       } else {

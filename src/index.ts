@@ -1,16 +1,10 @@
 import { asError } from "catch-unknown";
-import "dotenv/config";
 import { setImmediate } from "timers/promises";
 import { ArnFields, makeArn, parseArn } from "./arn.js";
 import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
 import { compare, compareNumericString } from "./compare.js";
-import {
-  EnvironmentFilter,
-  getClosedPREnvironmentFilter,
-  getEnvironmentFromName,
-  getPRNumberFromEnvironment,
-} from "./filter.js";
+import { getConfiguration } from "./config.js";
 import { getPullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
 import { getPoller } from "./poll.js";
@@ -22,20 +16,49 @@ import { getResources } from "./resources/tagging.js";
 import { isResourceType, ResourceType } from "./ResourceType.js";
 import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
 import { SchedulerBuilder, Task } from "./scheduler.js";
-import { createDestroyRun, deleteWorkspace, getWorkspaces, isWorkspaceLocked, waitForRun } from "./tfe.js";
+import {
+  createDestroyRun,
+  deleteWorkspace,
+  getWorkspaces,
+  isWorkspaceLocked,
+  TerraformWorkspace,
+  waitForRun,
+} from "./tfe.js";
 
-const dryRun = true;
-const destroyTerraformWorkspaces = false;
-const ignoreTerraformWorkspaces = false;
-const ignoreResourceTypes = new Set<string>();
-const maximumConcurrency = 20;
-const continueAfterErrors = false;
+function matchPatterns(s: string | null | undefined, patterns: (string | RegExp)[], group = 0): string | undefined {
+  let result: string | undefined;
+  if (s != null) {
+    for (const pattern of patterns) {
+      if (pattern instanceof RegExp) {
+        const match = pattern.exec(s);
+        result = match?.[group];
+        break;
+      }
+      if (pattern === s) {
+        result = s;
+        break;
+      }
+    }
+  }
+  return result;
+}
 
-const { GITHUB_TOKEN, TERRAFORM_CLOUD_TOKEN } = process.env;
+const configuration = await getConfiguration();
 
-const GITHUB_OWNER = "loancrate";
-const GITHUB_REPOSITORY = "loancrate";
-const TERRAFORM_CLOUD_ORGANIZATION = "loancrate";
+function getEnvironmentFromName(name: string): string | undefined {
+  return (
+    matchPatterns(name, configuration.protectedEnvironments) ??
+    matchPatterns(name, configuration.targetEnvironments) ??
+    matchPatterns(name, configuration.pullRequestEnvironments)
+  );
+}
+
+function getPRNumberFromEnvironment(env: string): number | undefined {
+  const n = matchPatterns(env, configuration.pullRequestEnvironments, 1);
+  return n != null ? parseInt(n) : n;
+}
+
+type EnvironmentFilter = (env: string) => boolean;
 
 interface Resource {
   arn: string;
@@ -53,7 +76,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
 
   let foundResources = 0;
   for (const resource of taggedResources) {
-    const environment = resource.Tags?.find((tag) => tag.Key === "Environment")?.Value;
+    const environment = resource.Tags?.find((tag) => matchPatterns(tag.Key, configuration.awsEnvironmentTags))?.Value;
     if (environment && envFilter(environment)) {
       resources.push({ arn: resource.ResourceARN, environment });
       ++foundResources;
@@ -78,7 +101,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
         cache.setRoleTags(role.Arn, tags);
       }
       logger.debug({ tags }, `Fetched tags for role ${role.RoleName}`);
-      environment = tags.find((tag) => tag.Key === "Environment")?.Value;
+      environment = tags.find((tag) => matchPatterns(tag.Key, configuration.awsEnvironmentTags))?.Value;
     }
     if (environment && envFilter(environment)) {
       resources.push({ arn: role.Arn, environment });
@@ -118,8 +141,6 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
   return resources;
 }
 
-const taskDefinitionFamilyType: ResourceType = "ecs.task-definition-family";
-
 function summarizeResources(resources: Resource[]): void {
   const typeCounts = new Map<string, number>();
   const environmentCounts = new Map<string, number>();
@@ -158,7 +179,7 @@ async function addTask(
   const { description, destroyer } = getResourceHandler(resourceType);
   if (destroyer) {
     let task: Task;
-    if (dryRun) {
+    if (configuration.dryRun) {
       task = () => {
         logger.info(`${environment}: Would destroy ${description} ${resourceId}`);
         return setImmediate();
@@ -188,78 +209,82 @@ async function addTask(
   }
 }
 
-const cache = new Cache();
+const cache = new Cache(configuration.cache);
 await cache.load();
 try {
   let prNumbers = cache.getPullRequests();
-  if (!prNumbers) {
-    if (!GITHUB_TOKEN) {
-      throw new Error("GITHUB_TOKEN not set");
+  if (configuration.github) {
+    if (!prNumbers) {
+      prNumbers = await getPullRequestNumbers(configuration.github);
+      cache.setPullRequests(prNumbers);
     }
-    prNumbers = await getPullRequestNumbers({
-      token: GITHUB_TOKEN,
-      owner: GITHUB_OWNER,
-      repository: GITHUB_REPOSITORY,
-    });
-    cache.setPullRequests(prNumbers);
+    logger.info(`Open PRs: ${prNumbers.openPRs.join(", ")}`);
+    logger.info(`Last PR: ${prNumbers.lastPR}`);
+  } else {
+    logger.info("GitHub not configured");
   }
-  logger.info(`Open PRs: ${prNumbers.openPRs.join(", ")}`);
-  logger.info(`Last PR: ${prNumbers.lastPR}`);
 
-  let workspaces;
-  if (!ignoreTerraformWorkspaces) {
-    if (!TERRAFORM_CLOUD_TOKEN) {
-      throw new Error("TERRAFORM_CLOUD_TOKEN not set");
-    }
-    const config = {
-      token: TERRAFORM_CLOUD_TOKEN,
-      organization: TERRAFORM_CLOUD_ORGANIZATION,
-    };
-
+  let workspaces: TerraformWorkspace[] | undefined;
+  if (configuration.terraformCloud) {
     workspaces = cache.getWorkspaces();
     if (!workspaces) {
-      workspaces = await getWorkspaces(config);
+      workspaces = await getWorkspaces(configuration.terraformCloud);
       workspaces.sort((a, b) => compare(a.name, b.name));
       cache.setWorkspaces(workspaces);
     }
     logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
+  } else {
+    logger.info("Terraform Cloud not configured");
+  }
 
-    if (destroyTerraformWorkspaces) {
-      const destroyedWorkspaceIds = new Set<string>();
-      for (const workspace of workspaces) {
-        const environment = getEnvironmentFromName(workspace.name);
-        if (environment) {
-          const pr = getPRNumberFromEnvironment(environment);
-          if (pr != null && pr <= prNumbers.lastPR && !prNumbers.openPRs.includes(pr)) {
-            if (dryRun) {
-              logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
-            } else {
-              const locked = await isWorkspaceLocked(config, workspace);
-              if (!locked) {
-                logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
-                const destroyRun = await createDestroyRun(config, workspace);
-                if (destroyRun) {
-                  await waitForRun(config, destroyRun);
-                  await deleteWorkspace(config, workspace);
-                  destroyedWorkspaceIds.add(workspace.id);
-                  logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
-                }
-              } else {
-                logger.info(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
-              }
+  const envFilter = (env: string): boolean => {
+    if (matchPatterns(env, configuration.protectedEnvironments)) {
+      return false;
+    }
+    if (matchPatterns(env, configuration.targetEnvironments)) {
+      return true;
+    }
+    if (prNumbers && matchPatterns(env, configuration.pullRequestEnvironments)) {
+      const { openPRs, lastPR } = prNumbers;
+      const pr = getPRNumberFromEnvironment(env);
+      return pr != null && pr <= lastPR && !openPRs.includes(pr);
+    }
+    return false;
+  };
+
+  if (workspaces && configuration.terraformCloud?.destroyWorkspaces) {
+    const destroyedWorkspaceIds = new Set<string>();
+    for (const workspace of workspaces) {
+      const environment = getEnvironmentFromName(workspace.name);
+      if (environment && envFilter(environment)) {
+        if (configuration.dryRun) {
+          logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
+        } else {
+          const locked = await isWorkspaceLocked(configuration.terraformCloud, workspace);
+          if (!locked) {
+            logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
+            const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
+            if (destroyRun) {
+              await waitForRun(configuration.terraformCloud, destroyRun);
+              await deleteWorkspace(configuration.terraformCloud, workspace);
+              destroyedWorkspaceIds.add(workspace.id);
+              logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
             }
+          } else {
+            logger.info(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
           }
         }
       }
-      workspaces = workspaces.filter((ws) => !destroyedWorkspaceIds.has(ws.id));
     }
-  } else {
-    logger.info("Ignoring Terraform workspaces");
+    workspaces = workspaces.filter((ws) => !destroyedWorkspaceIds.has(ws.id));
   }
 
-  const closedPRFilter = getClosedPREnvironmentFilter(prNumbers, workspaces);
+  // skip environments that are managed by a remaining Terraform workspace
+  const envFilterSkipWorkspaces = (env: string): boolean => {
+    return envFilter(env) && !workspaces?.some((ws) => ws.name.includes(env));
+  };
 
-  const resources = await getEnvironmentResources(closedPRFilter, cache);
+  const resources = await getEnvironmentResources(envFilterSkipWorkspaces, cache);
 
   summarizeResources(resources);
 
@@ -271,9 +296,9 @@ try {
     const { arn, environment } = resource;
     const arnFields = parseArn(arn);
     const { service, resourceType: subtype } = arnFields;
-    if (ignoreResourceTypes.has(service)) continue;
+    if (configuration.ignoreResourceTypes.has(service)) continue;
     const resourceType = subtype ? `${service}.${subtype}` : service;
-    if (ignoreResourceTypes.has(resourceType)) continue;
+    if (configuration.ignoreResourceTypes.has(resourceType)) continue;
     if (!isResourceType(resourceType)) {
       const arns = unrecognizedResourceTypeArns.get(resourceType);
       if (arns) {
@@ -304,9 +329,9 @@ try {
   }
 
   const scheduler = schedulerBuilder.build();
-  await scheduler.execute({ maximumConcurrency, continueAfterErrors });
+  await scheduler.execute(configuration);
 } catch (err) {
-  logger.error(asError(err).message);
+  logger.error(err, asError(err).message);
   process.exit(1);
 } finally {
   await cache.save();

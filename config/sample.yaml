@@ -1,0 +1,62 @@
+# The safety is on by default. Always do a dry-run first.
+DRY_RUN: true
+
+# Whether to continue running if a resource cannot be deleted.
+CONTINUE_AFTER_ERRORS: false
+
+# Maximum number of resources to delete concurrently.
+# Note that AWS rate limiting will likely reduce concurrency in practice.
+MAXIMUM_CONCURRENCY: 20
+
+# Resource types to ignore. See src/ResourceType.ts for names.
+IGNORE_RESOURCE_TYPES: []
+
+# Name(s) of tag(s) used to identify the logical environment of a resource.
+AWS_ENVIRONMENT_TAGS:
+  - /^env(ironment)?$/i
+
+# Environments that should not be deleted.
+# Regular expressions can be used by surrounding them with forward slashes.
+PROTECTED_ENVIRONMENTS:
+  - /\b(production|staging)\b/i
+
+# Environments corresponding to GitHub pull requests.
+# This should generally be a regular expression with the first capturing group containing the PR number.
+PULL_REQUEST_ENVIRONMENTS:
+  - /\bpr-(\d+)\b/i
+
+# Environments that should be unconditionally deleted (assuming they're not protected).
+TARGET_ENVIRONMENTS: []
+
+# GitHub API access token. Required for GitHub pull request support.
+GITHUB_TOKEN:
+
+# GitHub repository owner. Required for GitHub pull request support.
+GITHUB_OWNER:
+
+# GitHub repository name. Required for GitHub pull request support.
+GITHUB_REPOSITORY:
+
+# Terraform Cloud API access token. Required for Terraform Cloud support.
+TERRAFORM_CLOUD_TOKEN:
+
+# Terraform Cloud organization name. Required for Terraform Cloud support.
+TERRAFORM_CLOUD_ORGANIZATION:
+
+# Whether to destroy Terraform workspaces for pull requests that aren't currently open.
+DESTROY_TERRAFORM_WORKSPACES: false
+
+# Whether to disable caching of discovered resources, pull requests, workspaces, etc.
+CACHE_DISABLED: false
+
+# Duration after which cached Terraform workspaces expire.
+CACHE_WORKSPACES_TTL: 15m
+
+# Duration after which cached GitHub pull requests expire.
+CACHE_PULL_REQUESTS_TTL: 15m
+
+# Duration after which cached AWS resources expire.
+CACHE_RESOURCES_TTL: 15m
+
+# Duration after which cached AWS role tags expire.
+CACHE_ROLE_TAGS_TTL: 24h
