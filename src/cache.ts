@@ -59,7 +59,7 @@ export class Cache {
       if (await fileExists(path)) {
         const file = JSON.parse(await readFile(path, "utf8")) as CacheFile;
         if (file.version === currentVersion) {
-          logger.debug(`Loaded cache from ${path}`);
+          logger.info(`Loaded cache from ${path}`);
           this.data = file;
           this.dirty = false;
           return;
@@ -87,7 +87,7 @@ export class Cache {
         this.deleteExpiredRoleTags();
         await writeFile(path, JSON.stringify(file, undefined, 2));
         this.dirty = false;
-        logger.debug(`Saved cache to ${path}`);
+        logger.info(`Saved cache to ${path}`);
       } catch (err) {
         logger.warn(`Error saving cache to ${path}: ${asError(err).message}`);
       }

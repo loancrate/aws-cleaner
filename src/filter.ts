@@ -6,6 +6,13 @@ export function getEnvironmentFromName(name: string): string | undefined {
   return match ? match[1] : undefined;
 }
 
+export function getPRNumberFromEnvironment(env: string): number | undefined {
+  const match = /^pr-(\d+)$/i.exec(env);
+  if (match) {
+    return parseInt(match[1]);
+  }
+}
+
 export type EnvironmentFilter = (env: string) => boolean;
 
 export function getClosedPREnvironmentFilter(
@@ -14,11 +21,7 @@ export function getClosedPREnvironmentFilter(
 ): EnvironmentFilter {
   const { openPRs, lastPR } = prNumbers;
   return (env: string): boolean => {
-    const match = /^pr-(\d+)$/i.exec(env);
-    if (match) {
-      const number = parseInt(match[1]);
-      return number <= lastPR && !openPRs.includes(number) && !workspaces?.some((ws) => ws.name.includes(env));
-    }
-    return false;
+    const pr = getPRNumberFromEnvironment(env);
+    return pr != null && pr <= lastPR && !openPRs.includes(pr) && !workspaces?.some((ws) => ws.name.includes(env));
   };
 }

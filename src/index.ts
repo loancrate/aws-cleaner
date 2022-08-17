@@ -5,7 +5,12 @@ import { ArnFields, makeArn, parseArn } from "./arn.js";
 import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
 import { compare, compareNumericString } from "./compare.js";
-import { EnvironmentFilter, getClosedPREnvironmentFilter, getEnvironmentFromName } from "./filter.js";
+import {
+  EnvironmentFilter,
+  getClosedPREnvironmentFilter,
+  getEnvironmentFromName,
+  getPRNumberFromEnvironment,
+} from "./filter.js";
 import { getPullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
 import { getPoller } from "./poll.js";
@@ -17,9 +22,10 @@ import { getResources } from "./resources/tagging.js";
 import { isResourceType, ResourceType } from "./ResourceType.js";
 import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
 import { SchedulerBuilder, Task } from "./scheduler.js";
-import { getTerraformWorkspaces } from "./tfe.js";
+import { createDestroyRun, deleteWorkspace, getWorkspaces, isWorkspaceLocked, waitForRun } from "./tfe.js";
 
 const dryRun = true;
+const destroyTerraformWorkspaces = false;
 const ignoreTerraformWorkspaces = false;
 const ignoreResourceTypes = new Set<string>();
 const maximumConcurrency = 20;
@@ -185,24 +191,6 @@ async function addTask(
 const cache = new Cache();
 await cache.load();
 try {
-  let workspaces;
-  if (!ignoreTerraformWorkspaces) {
-    workspaces = cache.getWorkspaces();
-    if (!workspaces) {
-      if (!TERRAFORM_CLOUD_TOKEN) {
-        throw new Error("TERRAFORM_CLOUD_TOKEN not set");
-      }
-      workspaces = await getTerraformWorkspaces({
-        token: TERRAFORM_CLOUD_TOKEN,
-        organization: TERRAFORM_CLOUD_ORGANIZATION,
-      });
-      cache.setWorkspaces(workspaces);
-    }
-    logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
-  } else {
-    logger.info("Ignoring Terraform workspaces");
-  }
-
   let prNumbers = cache.getPullRequests();
   if (!prNumbers) {
     if (!GITHUB_TOKEN) {
@@ -217,6 +205,57 @@ try {
   }
   logger.info(`Open PRs: ${prNumbers.openPRs.join(", ")}`);
   logger.info(`Last PR: ${prNumbers.lastPR}`);
+
+  let workspaces;
+  if (!ignoreTerraformWorkspaces) {
+    if (!TERRAFORM_CLOUD_TOKEN) {
+      throw new Error("TERRAFORM_CLOUD_TOKEN not set");
+    }
+    const config = {
+      token: TERRAFORM_CLOUD_TOKEN,
+      organization: TERRAFORM_CLOUD_ORGANIZATION,
+    };
+
+    workspaces = cache.getWorkspaces();
+    if (!workspaces) {
+      workspaces = await getWorkspaces(config);
+      workspaces.sort((a, b) => compare(a.name, b.name));
+      cache.setWorkspaces(workspaces);
+    }
+    logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
+
+    if (destroyTerraformWorkspaces) {
+      const destroyedWorkspaceIds = new Set<string>();
+      for (const workspace of workspaces) {
+        const environment = getEnvironmentFromName(workspace.name);
+        if (environment) {
+          const pr = getPRNumberFromEnvironment(environment);
+          if (pr != null && pr <= prNumbers.lastPR && !prNumbers.openPRs.includes(pr)) {
+            if (dryRun) {
+              logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
+            } else {
+              const locked = await isWorkspaceLocked(config, workspace);
+              if (!locked) {
+                logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
+                const destroyRun = await createDestroyRun(config, workspace);
+                if (destroyRun) {
+                  await waitForRun(config, destroyRun);
+                  await deleteWorkspace(config, workspace);
+                  destroyedWorkspaceIds.add(workspace.id);
+                  logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
+                }
+              } else {
+                logger.info(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
+              }
+            }
+          }
+        }
+      }
+      workspaces = workspaces.filter((ws) => !destroyedWorkspaceIds.has(ws.id));
+    }
+  } else {
+    logger.info("Ignoring Terraform workspaces");
+  }
 
   const closedPRFilter = getClosedPREnvironmentFilter(prNumbers, workspaces);
 
