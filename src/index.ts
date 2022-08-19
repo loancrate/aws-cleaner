@@ -1,5 +1,5 @@
 import { asError } from "catch-unknown";
-import { setImmediate } from "timers/promises";
+import { setImmediate, setTimeout as sleep } from "timers/promises";
 import { ArnFields, makeArn, parseArn } from "./arn.js";
 import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
@@ -207,6 +207,13 @@ async function addTask(
       sortKey: resourceId,
     });
   }
+}
+
+if (configuration.dryRun) {
+  logger.info("This is a dry run -- nothing will be deleted");
+} else {
+  logger.warn("This is NOT a dry run! Press Ctrl-C now if you haven't already done a dry run!");
+  await sleep(2000);
 }
 
 const cache = new Cache(configuration.cache);
