@@ -32,6 +32,53 @@ Finally, we also support coordinating with Terraform Cloud.
 Terraform Cloud workspaces corresponding to target environments can be optionally destroyed and deleted automatically.
 For workspaces that are not deleted, we will skip the corresponding environments when enumerating AWS resources.
 
+### Supported Resource Types
+
+AWS resource types are added as we encounter them and can test deletion of them.
+The following types are currently supported:
+
+- Elastic Compute Cloud (EC2)
+  - Elastic IP
+  - Internet Gateway
+  - NAT Gateway
+  - Route Table
+  - Security Group
+  - Subnet
+  - VPC
+  - VPC Flow Log
+- Elastic Container Registry (ECR)
+  - Repository
+- Elastic Container Service (ECS)
+  - Cluster
+  - Service
+  - Task
+  - Task Definition
+  - Task Definition Family
+- ElastiCache
+  - Cluster
+  - Subnet Group
+- Elastic Load Balancing (ELB)
+  - Listener
+  - Listener Rule
+  - Load Balancer
+  - Target Group
+- Identity and Access Management (IAM)
+  - Instance Profile
+  - Policy
+  - Role
+- CloudWatch Logging
+  - Log Group
+- Relational Database Service (RDS)
+  - Cluster
+  - Cluster Parameter Group
+  - Cluster Snapshot
+  - Database
+  - Subnet Group
+- Simple Storage Service (S3)
+  - Bucket
+- Secrets Manager
+  - Secret
+
 ## Installation
 
 This application is currently designed to be run from source,
