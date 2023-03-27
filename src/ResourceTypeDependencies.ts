@@ -45,6 +45,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
     "s3",
   ],
   "elasticloadbalancing.targetgroup": ["ec2.vpc"],
+  "firehose.deliverystream": [],
   "iam.instance-profile": ["iam.role"],
   "iam.policy": [],
   "iam.role": ["iam.policy"],
@@ -64,4 +65,6 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "rds.subgrp": ["ec2.subnet"],
   s3: ["iam.policy"],
   "secretsmanager.secret": [],
+  "servicediscovery.namespace": [],
+  "servicediscovery.service": ["servicediscovery.namespace"],
 };

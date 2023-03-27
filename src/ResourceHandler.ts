@@ -12,9 +12,21 @@ import {
   deleteVpc,
 } from "./resources/ec2.js";
 import { deleteRepository } from "./resources/ecr.js";
-import { deleteCluster, deleteService, deleteTask, deleteTaskDefinition, deleteTaskDefinitionFamily } from "./resources/ecs.js";
+import {
+  deleteCluster,
+  deleteService,
+  deleteTask,
+  deleteTaskDefinition,
+  deleteTaskDefinitionFamily,
+} from "./resources/ecs.js";
 import { deleteCacheCluster, deleteCacheSubnetGroup } from "./resources/elasticache.js";
-import { deleteListener, deleteListenerRule, deleteLoadBalancer, deleteTargetGroup } from "./resources/elasticloadbalancing.js";
+import {
+  deleteListener,
+  deleteListenerRule,
+  deleteLoadBalancer,
+  deleteTargetGroup,
+} from "./resources/elasticloadbalancing.js";
+import { deleteDeliveryStream } from "./resources/firehose.js";
 import { deleteInstanceProfile, deletePolicy, deleteRole } from "./resources/iam.js";
 import { deleteLogGroup } from "./resources/logs.js";
 import {
@@ -26,6 +38,7 @@ import {
 } from "./resources/rds.js";
 import { deleteBucket } from "./resources/s3.js";
 import { deleteSecret } from "./resources/secretsmanager.js";
+import { deleteDiscoveryNamespace, deleteDiscoveryService } from "./resources/servicediscovery.js";
 import { ResourceType } from "./ResourceType.js";
 
 export interface ResourceHandler {
@@ -119,6 +132,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     description: "ELB Target Group",
     destroyer: deleteTargetGroup,
   },
+  "firehose.deliverystream": {
+    description: "Kinesis Firehose Delivery Stream",
+    destroyer: deleteDeliveryStream,
+  },
   "iam.instance-profile": {
     description: "IAM Instance Profile",
     destroyer: deleteInstanceProfile,
@@ -162,6 +179,14 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "secretsmanager.secret": {
     description: "Secrets Manager Secret",
     destroyer: deleteSecret,
+  },
+  "servicediscovery.namespace": {
+    description: "Service Discovery Namespace",
+    destroyer: deleteDiscoveryNamespace,
+  },
+  "servicediscovery.service": {
+    description: "Service Discovery Service",
+    destroyer: deleteDiscoveryService,
   },
 };
 

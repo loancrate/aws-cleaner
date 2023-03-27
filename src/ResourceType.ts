@@ -22,6 +22,7 @@ const resourceTypes = [
   "elasticloadbalancing.listener-rule",
   "elasticloadbalancing.loadbalancer",
   "elasticloadbalancing.targetgroup",
+  "firehose.deliverystream",
   "iam.instance-profile",
   "iam.policy",
   "iam.role",
@@ -33,6 +34,8 @@ const resourceTypes = [
   "rds.subgrp",
   "s3",
   "secretsmanager.secret",
+  "servicediscovery.namespace",
+  "servicediscovery.service",
 ] as const;
 
 const resourceTypeSet = new Set<string>(resourceTypes);
