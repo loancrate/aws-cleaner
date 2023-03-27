@@ -62,6 +62,8 @@ The following types are currently supported:
   - Listener Rule
   - Load Balancer
   - Target Group
+- Kinesis Firehose
+  - Delivery Stream
 - Identity and Access Management (IAM)
   - Instance Profile
   - Policy
@@ -78,6 +80,9 @@ The following types are currently supported:
   - Bucket
 - Secrets Manager
   - Secret
+- Service Discovery
+  - Namespace
+  - Service
 
 ## Installation
 
