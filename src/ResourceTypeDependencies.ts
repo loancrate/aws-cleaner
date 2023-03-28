@@ -22,6 +22,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
     "ecs.cluster",
     "ecs.task",
     "ecs.task-definition",
+    "servicediscovery.service",
   ],
   "ecs.task": [
     "ec2.elastic-ip",

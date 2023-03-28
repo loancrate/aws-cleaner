@@ -1,4 +1,4 @@
-import { DeleteDeliveryStreamCommand, FirehoseClient } from "@aws-sdk/client-firehose";
+import { DeleteDeliveryStreamCommand, FirehoseClient, ResourceNotFoundException } from "@aws-sdk/client-firehose";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 
 let client: FirehoseClient | undefined;
@@ -16,5 +16,9 @@ export async function deleteDeliveryStream({ resourceId }: Pick<ResourceDestroye
     DeliveryStreamName: resourceId,
     AllowForceDelete: true,
   });
-  await client.send(command);
+  try {
+    await client.send(command);
+  } catch (err) {
+    if (!(err instanceof ResourceNotFoundException)) throw err;
+  }
 }

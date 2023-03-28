@@ -80,8 +80,12 @@ export async function deleteInstanceProfile({
 async function getInstanceProfile(InstanceProfileName: string): Promise<InstanceProfile | undefined> {
   const client = getClient();
   const command = new GetInstanceProfileCommand({ InstanceProfileName });
-  const response = await throttle(() => client.send(command));
-  return response.InstanceProfile;
+  try {
+    const response = await throttle(() => client.send(command));
+    return response.InstanceProfile;
+  } catch (err) {
+    if (getErrorCode(err) !== "NoSuchEntity") throw err;
+  }
 }
 
 async function removeRoleFromInstanceProfile(InstanceProfileName: string, RoleName: string): Promise<void> {
