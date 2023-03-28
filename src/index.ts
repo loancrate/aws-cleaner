@@ -20,7 +20,7 @@ import {
   createDestroyRun,
   deleteWorkspace,
   getWorkspaces,
-  isWorkspaceLocked,
+  isWorkspaceRunning,
   TerraformWorkspace,
   waitForRun,
 } from "./tfe.js";
@@ -267,16 +267,22 @@ try {
         if (configuration.dryRun) {
           logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
         } else {
-          const locked = await isWorkspaceLocked(configuration.terraformCloud, workspace);
-          if (!locked) {
+          const running = await isWorkspaceRunning(configuration.terraformCloud, workspace);
+          if (!running) {
             logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
-            const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
-            if (destroyRun) {
-              await waitForRun(configuration.terraformCloud, destroyRun);
-              await deleteWorkspace(configuration.terraformCloud, workspace);
-              destroyedWorkspaceIds.add(workspace.id);
-              logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
+            if (workspace.resourceCount > 0) {
+              const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
+              if (destroyRun) {
+                const status = await waitForRun(configuration.terraformCloud, destroyRun);
+                if (status !== "applied") {
+                  logger.info(`${environment}: Destroy run failed with status ${status}`);
+                  continue;
+                }
+              }
             }
+            await deleteWorkspace(configuration.terraformCloud, workspace);
+            destroyedWorkspaceIds.add(workspace.id);
+            logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
           } else {
             logger.info(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
           }
