@@ -3,6 +3,7 @@ import { ResourceType } from "./ResourceType.js";
 export type ResourceTypeDependencies = Record<ResourceType, ResourceType[]>;
 
 export const resourceTypeDependencies: ResourceTypeDependencies = {
+  "cloudwatch.alarm": [],
   "ec2.elastic-ip": ["ec2.vpc"],
   "ec2.internet-gateway": ["ec2.elastic-ip"],
   "ec2.natgateway": ["ec2.subnet"],
@@ -46,10 +47,13 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
     "s3",
   ],
   "elasticloadbalancing.targetgroup": ["ec2.vpc"],
+  "events.rule": [],
   "firehose.deliverystream": [],
   "iam.instance-profile": ["iam.role"],
   "iam.policy": [],
   "iam.role": ["iam.policy"],
+  "kafka.cluster": ["ec2.security-group", "ec2.subnet", "iam.role", "logs.log-group"],
+  "kms.key": [],
   "logs.log-group": [],
   "rds.cluster-pg": [],
   "rds.cluster-snapshot": [],
@@ -68,4 +72,5 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "secretsmanager.secret": [],
   "servicediscovery.namespace": [],
   "servicediscovery.service": ["servicediscovery.namespace"],
+  sns: [],
 };

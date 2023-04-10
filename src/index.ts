@@ -176,17 +176,18 @@ async function addTask(
   cache: Cache
 ) {
   const { resourceId } = arnFields;
-  const { description, destroyer } = getResourceHandler(resourceType);
+  const { kind, describer, destroyer } = getResourceHandler(resourceType);
+  const name = describer ? await describer({ arn, ...arnFields }) : resourceId;
   if (destroyer) {
     let task: Task;
     if (configuration.dryRun) {
       task = () => {
-        logger.info(`${environment}: Would destroy ${description} ${resourceId}`);
+        logger.info(`${environment}: Would destroy ${kind} ${name}`);
         return setImmediate();
       };
     } else {
       task = async () => {
-        logger.info(`${environment}: Destroying ${description} ${resourceId}...`);
+        logger.info(`${environment}: Destroying ${kind} ${name}...`);
         try {
           await destroyer({ arn, ...arnFields, poller });
           if (resourceType === "iam.role") {
@@ -194,9 +195,9 @@ async function addTask(
           } else {
             cache.deleteTaggedResource(arn);
           }
-          logger.info(`${environment}: Destroyed ${description} ${resourceId}`);
+          logger.info(`${environment}: Destroyed ${kind} ${name}`);
         } catch (err) {
-          logger.error(`${environment}: Error destroying ${description} ${resourceId}: ${getErrorMessage(err)}`);
+          logger.error(`${environment}: Error destroying ${kind} ${name}: ${getErrorMessage(err)}`);
           throw err;
         }
       };

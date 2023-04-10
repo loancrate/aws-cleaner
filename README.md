@@ -37,6 +37,9 @@ For workspaces that are not deleted, we will skip the corresponding environments
 AWS resource types are added as we encounter them and can test deletion of them.
 The following types are currently supported:
 
+- CloudWatch
+  - Alarm
+  - Log Group
 - Elastic Compute Cloud (EC2)
   - Elastic IP
   - Internet Gateway
@@ -62,14 +65,18 @@ The following types are currently supported:
   - Listener Rule
   - Load Balancer
   - Target Group
+- EventBridge
+  - Rule
+- Kafka (MSK)
+  - Cluster
+- Key Management Service (KMS)
+  - Key
 - Kinesis Firehose
   - Delivery Stream
 - Identity and Access Management (IAM)
   - Instance Profile
   - Policy
   - Role
-- CloudWatch Logging
-  - Log Group
 - Relational Database Service (RDS)
   - Cluster
   - Cluster Parameter Group
@@ -83,6 +90,8 @@ The following types are currently supported:
 - Service Discovery
   - Namespace
   - Service
+- Simple Notification Service (SNS)
+  - Topic
 
 ## Installation
 

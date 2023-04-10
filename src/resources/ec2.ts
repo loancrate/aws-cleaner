@@ -6,12 +6,16 @@ import {
   DeleteSecurityGroupCommand,
   DeleteSubnetCommand,
   DeleteVpcCommand,
+  DescribeAddressesCommand,
+  DescribeFlowLogsCommand,
   DescribeInternetGatewaysCommand,
   DescribeNatGatewaysCommand,
   DescribeNetworkInterfacesCommand,
   DescribeRouteTablesCommand,
   DescribeSecurityGroupRulesCommand,
   DescribeSecurityGroupsCommand,
+  DescribeSubnetsCommand,
+  DescribeVpcsCommand,
   DetachInternetGatewayCommand,
   DisassociateRouteTableCommand,
   EC2Client,
@@ -26,12 +30,15 @@ import {
   RouteTable,
   SecurityGroup,
   SecurityGroupRule,
+  Subnet,
 } from "@aws-sdk/client-ec2";
-import { getErrorCode } from "../awserror.js";
 import { DependencyEnumeratorParams } from "../DependencyEnumerator.js";
-import logger from "../logger.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { parseArn } from "../arn.js";
+import { getErrorCode } from "../awserror.js";
+import logger from "../logger.js";
 import { isNotNull } from "../typeUtil.js";
+import { ResourceDescriberParams } from "../ResourceDescriber.js";
 
 let client: EC2Client | undefined;
 
@@ -48,6 +55,34 @@ export async function deleteElasticIp({ resourceId }: Pick<ResourceDestroyerPara
   await client.send(command);
 }
 
+export async function describeElasticIp({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const client = getClient();
+  const command = new DescribeAddressesCommand({ AllocationIds: [resourceId] });
+  const response = await client.send(command);
+  const eip = response.Addresses?.[0];
+  if (eip?.Tags) {
+    let extra = resourceId;
+    if (eip.NetworkInterfaceId) {
+      const command = new DescribeNetworkInterfacesCommand({ NetworkInterfaceIds: [eip.NetworkInterfaceId] });
+      const response = await client.send(command);
+      const eni = response.NetworkInterfaces?.[0];
+      if (eni?.Description) {
+        extra += ", " + eni.Description;
+      }
+    }
+
+    const name = eip.Tags.find((tag) => tag.Key === "Name")?.Value;
+    if (name) {
+      return `${name} (${extra})`;
+    }
+
+    if (eip.PublicIp) {
+      return `${eip.PublicIp} (${extra})`;
+    }
+  }
+  return resourceId;
+}
+
 export async function deleteFlowLogs({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
   const client = getClient();
   const command = new DeleteFlowLogsCommand({ FlowLogIds: [resourceId] });
@@ -56,6 +91,24 @@ export async function deleteFlowLogs({ resourceId }: Pick<ResourceDestroyerParam
   } catch (err) {
     if (getErrorCode(err) !== "InvalidFlowLogId.NotFound") throw err;
   }
+}
+
+export async function describeFlowLogs({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const client = getClient();
+  const command = new DescribeFlowLogsCommand({ FlowLogIds: [resourceId] });
+  const response = await client.send(command);
+  const log = response.FlowLogs?.[0];
+  if (log?.Tags) {
+    const name = log.Tags.find((tag) => tag.Key === "Name")?.Value;
+    if (name) {
+      return `${name} (${resourceId})`;
+    }
+  }
+  if (log?.LogDestination) {
+    const arn = parseArn(log.LogDestination);
+    return `${log.LogDestinationType}:${arn.resourceId} (${resourceId})`;
+  }
+  return resourceId;
 }
 
 export async function deleteInternetGateway({
@@ -136,7 +189,7 @@ export async function deleteNatGateway({
 
     await poller(
       async () => {
-        const ngw = await describeNatGateway(resourceId);
+        const ngw = (await describeNatGateways([resourceId]))[0];
         return !ngw || ngw.State === NatGatewayState.DELETED;
       },
       { description: `NAT gateway ${resourceId} to be deleted` }
@@ -146,11 +199,19 @@ export async function deleteNatGateway({
   }
 }
 
-async function describeNatGateway(natGatewayId: string): Promise<NatGateway | undefined> {
+export async function describeNatGateway({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const ngw = (await describeNatGateways([resourceId]))[0];
+  if (ngw.SubnetId) {
+    return `${resourceId} (${await describeSubnet({ resourceId: ngw.SubnetId })})`;
+  }
+  return resourceId;
+}
+
+async function describeNatGateways(natGatewayIds: string[]): Promise<NatGateway[]> {
   const client = getClient();
-  const command = new DescribeNatGatewaysCommand({ NatGatewayIds: [natGatewayId] });
+  const command = new DescribeNatGatewaysCommand({ NatGatewayIds: natGatewayIds });
   const response = await client.send(command);
-  return response.NatGateways?.[0];
+  return response.NatGateways || [];
 }
 
 async function describeNetworkInterfaces(filterName: string, filterValue: string): Promise<NetworkInterface[]> {
@@ -184,7 +245,7 @@ export async function deleteRouteTable({
     let exists = true;
     await poller(
       async () => {
-        const rtb = await describeRouteTable(resourceId);
+        const rtb = (await describeRouteTables([resourceId]))[0];
         if (!rtb) {
           exists = false;
           logger.debug(`Route table ${resourceId} not found`);
@@ -224,11 +285,28 @@ export async function deleteRouteTable({
   }
 }
 
-async function describeRouteTable(routeTableId: string): Promise<RouteTable | undefined> {
+export async function describeRouteTable({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const rtb = (await describeRouteTables([resourceId]))[0];
+  if (rtb?.Tags) {
+    const name = rtb.Tags.find((tag) => tag.Key === "Name")?.Value;
+    if (name) {
+      return `${name} (${resourceId})`;
+    }
+  }
+  if (rtb?.Associations?.length) {
+    const subnetIds = rtb.Associations.map((assoc) => assoc.SubnetId) as string[];
+    const subnets = await describeSubnets(subnetIds);
+    const subnetDescs = subnets.map((subnet) => getSubnetDescription(subnet));
+    return `${resourceId} (${subnetDescs.join(", ")})`;
+  }
+  return resourceId;
+}
+
+async function describeRouteTables(routeTableIds: string[]): Promise<RouteTable[]> {
   const client = getClient();
-  const command = new DescribeRouteTablesCommand({ RouteTableIds: [routeTableId] });
+  const command = new DescribeRouteTablesCommand({ RouteTableIds: routeTableIds });
   const response = await client.send(command);
-  return response.RouteTables?.[0];
+  return response.RouteTables || [];
 }
 
 async function disassociateRouteTable(associationId: string): Promise<void> {
@@ -251,6 +329,13 @@ export async function deleteSecurityGroup({ resourceId }: Pick<ResourceDestroyer
   }
 }
 
+export async function describeSecurityGroup({
+  resourceId,
+}: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const sg = (await describeSecurityGroups([resourceId]))[0];
+  return sg?.GroupName ? `${sg.GroupName} (${resourceId})` : resourceId;
+}
+
 async function describeSecurityGroups(groupIds: string[]): Promise<SecurityGroup[]> {
   const client = getClient();
   const command = new DescribeSecurityGroupsCommand({ GroupIds: groupIds });
@@ -262,7 +347,7 @@ export async function getSecurityGroupDependencies({
   resourceId,
 }: Pick<DependencyEnumeratorParams, "resourceId">): Promise<string[]> {
   const fullDeps = new Set<string>([resourceId]);
-  const sg = (await describeSecurityGroups([resourceId]))?.[0];
+  const sg = (await describeSecurityGroups([resourceId]))[0];
   if (sg) {
     const { VpcId } = sg;
     for (let depGroups = [sg]; ; ) {
@@ -353,6 +438,28 @@ export async function deleteSubnet({ resourceId }: Pick<ResourceDestroyerParams,
   }
 }
 
+export async function describeSubnet({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const subnet = (await describeSubnets([resourceId]))[0];
+  return subnet ? getSubnetDescription(subnet, resourceId) : resourceId;
+}
+
+function getSubnetDescription(subnet: Subnet, resourceId = subnet.SubnetId): string {
+  if (subnet?.Tags) {
+    const name = subnet.Tags.find((tag) => tag.Key === "Name")?.Value;
+    if (name) {
+      return `${name} (${resourceId})`;
+    }
+  }
+  return String(resourceId);
+}
+
+async function describeSubnets(subnetIds: string[]): Promise<Subnet[]> {
+  const client = getClient();
+  const command = new DescribeSubnetsCommand({ SubnetIds: subnetIds });
+  const response = await client.send(command);
+  return response.Subnets || [];
+}
+
 export async function deleteVpc({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
   const sgs = await describeVpcSecurityGroups(resourceId);
   for (const sg of sgs) {
@@ -376,6 +483,20 @@ export async function deleteVpc({ resourceId }: Pick<ResourceDestroyerParams, "r
     console.log(err);
     if (getErrorCode(err) !== "InvalidVpcID.NotFound") throw err;
   }
+}
+
+export async function describeVpc({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const client = getClient();
+  const command = new DescribeVpcsCommand({ VpcIds: [resourceId] });
+  const response = await client.send(command);
+  const vpc = response.Vpcs?.[0];
+  if (vpc?.Tags) {
+    const name = vpc.Tags.find((tag) => tag.Key === "Name")?.Value;
+    if (name) {
+      return `${name} (${resourceId})`;
+    }
+  }
+  return resourceId;
 }
 
 async function describeVpcSecurityGroups(vpcId: string): Promise<SecurityGroup[]> {

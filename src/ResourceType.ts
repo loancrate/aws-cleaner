@@ -1,4 +1,5 @@
 const resourceTypes = [
+  "cloudwatch.alarm",
   "ec2.elastic-ip",
   "ec2.internet-gateway",
   "ec2.natgateway",
@@ -22,10 +23,13 @@ const resourceTypes = [
   "elasticloadbalancing.listener-rule",
   "elasticloadbalancing.loadbalancer",
   "elasticloadbalancing.targetgroup",
+  "events.rule",
   "firehose.deliverystream",
   "iam.instance-profile",
   "iam.policy",
   "iam.role",
+  "kafka.cluster",
+  "kms.key",
   "logs.log-group",
   "rds.cluster",
   "rds.cluster-pg",
@@ -36,6 +40,7 @@ const resourceTypes = [
   "secretsmanager.secret",
   "servicediscovery.namespace",
   "servicediscovery.service",
+  "sns",
 ] as const;
 
 const resourceTypeSet = new Set<string>(resourceTypes);

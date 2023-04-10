@@ -1,5 +1,7 @@
 import { DependencyEnumerator } from "./DependencyEnumerator.js";
+import { ResourceDescriber } from "./ResourceDescriber.js";
 import { ResourceDestroyer } from "./ResourceDestroyer.js";
+import { deleteCloudWatchAlarm } from "./resources/cloudwatch.js";
 import {
   deleteElasticIp,
   deleteFlowLogs,
@@ -10,6 +12,13 @@ import {
   deleteSecurityGroupRules,
   deleteSubnet,
   deleteVpc,
+  describeElasticIp,
+  describeFlowLogs,
+  describeNatGateway,
+  describeRouteTable,
+  describeSecurityGroup,
+  describeSubnet,
+  describeVpc,
 } from "./resources/ec2.js";
 import { deleteRepository } from "./resources/ecr.js";
 import {
@@ -26,8 +35,11 @@ import {
   deleteLoadBalancer,
   deleteTargetGroup,
 } from "./resources/elasticloadbalancing.js";
+import { deleteEventBridgeRule } from "./resources/eventbridge.js";
 import { deleteDeliveryStream } from "./resources/firehose.js";
 import { deleteInstanceProfile, deletePolicy, deleteRole } from "./resources/iam.js";
+import { deleteKafkaCluster } from "./resources/kafka.js";
+import { deleteKmsKey, describeKmsKey } from "./resources/kms.js";
 import { deleteLogGroup } from "./resources/logs.js";
 import {
   deleteDatabaseCluster,
@@ -38,155 +50,191 @@ import {
 } from "./resources/rds.js";
 import { deleteBucket } from "./resources/s3.js";
 import { deleteSecret } from "./resources/secretsmanager.js";
-import { deleteDiscoveryNamespace, deleteDiscoveryService } from "./resources/servicediscovery.js";
+import {
+  deleteDiscoveryNamespace,
+  deleteDiscoveryService,
+  describeDiscoveryNamespace,
+} from "./resources/servicediscovery.js";
+import { deleteSnsTopic } from "./resources/sns.js";
 import { ResourceType } from "./ResourceType.js";
 
 export interface ResourceHandler {
-  description: string;
+  kind: string;
+  describer?: ResourceDescriber;
   dependencyEnumerator?: DependencyEnumerator;
   destroyer?: ResourceDestroyer;
 }
 
 const resourceHandlers: Record<ResourceType, ResourceHandler> = {
+  "cloudwatch.alarm": {
+    kind: "CloudWatch Alarm",
+    destroyer: deleteCloudWatchAlarm,
+  },
   "ec2.elastic-ip": {
-    description: "EC2 Elastic IP",
+    kind: "EC2 Elastic IP",
+    describer: describeElasticIp,
     destroyer: deleteElasticIp,
   },
   "ec2.internet-gateway": {
-    description: "EC2 Internet Gateway",
+    kind: "EC2 Internet Gateway",
     destroyer: deleteInternetGateway,
   },
   "ec2.natgateway": {
-    description: "EC2 NAT Gateway",
+    kind: "EC2 NAT Gateway",
+    describer: describeNatGateway,
     destroyer: deleteNatGateway,
   },
   "ec2.route-table": {
-    description: "EC2 Route Table",
+    kind: "EC2 Route Table",
+    describer: describeRouteTable,
     destroyer: deleteRouteTable,
   },
   "ec2.security-group": {
-    description: "EC2 Security Group",
+    kind: "EC2 Security Group",
+    describer: describeSecurityGroup,
     destroyer: deleteSecurityGroup,
   },
   "ec2.security-group-rules": {
-    description: "EC2 Security Group Rules",
+    kind: "EC2 Security Group Rules",
+    describer: describeSecurityGroup,
     destroyer: deleteSecurityGroupRules,
   },
   "ec2.subnet": {
-    description: "EC2 Subnet",
+    kind: "EC2 Subnet",
+    describer: describeSubnet,
     destroyer: deleteSubnet,
   },
   "ec2.vpc": {
-    description: "VPC",
+    kind: "VPC",
+    describer: describeVpc,
     destroyer: deleteVpc,
   },
   "ec2.vpc-flow-log": {
-    description: "VPC Flow Log",
+    kind: "VPC Flow Log",
+    describer: describeFlowLogs,
     destroyer: deleteFlowLogs,
   },
   "ecr.repository": {
-    description: "ECR Repository",
+    kind: "ECR Repository",
     destroyer: deleteRepository,
   },
   "ecs.cluster": {
-    description: "ECS Cluster",
+    kind: "ECS Cluster",
     destroyer: deleteCluster,
   },
   "ecs.service": {
-    description: "ECS Service",
+    kind: "ECS Service",
     destroyer: deleteService,
   },
   "ecs.task": {
-    description: "ECS Task",
+    kind: "ECS Task",
     destroyer: deleteTask,
   },
   "ecs.task-definition": {
-    description: "ECS Task Definition",
+    kind: "ECS Task Definition",
     destroyer: deleteTaskDefinition,
   },
   "ecs.task-definition-family": {
-    description: "ECS Task Definition Family",
+    kind: "ECS Task Definition Family",
     destroyer: deleteTaskDefinitionFamily,
   },
   "elasticache.cluster": {
-    description: "ElastiCache Cluster",
+    kind: "ElastiCache Cluster",
     destroyer: deleteCacheCluster,
   },
   "elasticache.subnetgroup": {
-    description: "ElastiCache Subnet Group",
+    kind: "ElastiCache Subnet Group",
     destroyer: deleteCacheSubnetGroup,
   },
   "elasticloadbalancing.listener": {
-    description: "ELB Listener",
+    kind: "ELB Listener",
     destroyer: deleteListener,
   },
   "elasticloadbalancing.listener-rule": {
-    description: "ELB Listener Rule",
+    kind: "ELB Listener Rule",
     destroyer: deleteListenerRule,
   },
   "elasticloadbalancing.loadbalancer": {
-    description: "ELB Load Balancer",
+    kind: "ELB Load Balancer",
     destroyer: deleteLoadBalancer,
   },
   "elasticloadbalancing.targetgroup": {
-    description: "ELB Target Group",
+    kind: "ELB Target Group",
     destroyer: deleteTargetGroup,
   },
+  "events.rule": {
+    kind: "EventBridge Rule",
+    destroyer: deleteEventBridgeRule,
+  },
   "firehose.deliverystream": {
-    description: "Kinesis Firehose Delivery Stream",
+    kind: "Kinesis Firehose Delivery Stream",
     destroyer: deleteDeliveryStream,
   },
   "iam.instance-profile": {
-    description: "IAM Instance Profile",
+    kind: "IAM Instance Profile",
     destroyer: deleteInstanceProfile,
   },
   "iam.policy": {
-    description: "IAM Policy",
+    kind: "IAM Policy",
     destroyer: deletePolicy,
   },
   "iam.role": {
-    description: "IAM Role",
+    kind: "IAM Role",
     destroyer: deleteRole,
   },
+  "kafka.cluster": {
+    kind: "Kafka Cluster",
+    destroyer: deleteKafkaCluster,
+  },
+  "kms.key": {
+    kind: "KMS Key",
+    describer: describeKmsKey,
+    destroyer: deleteKmsKey,
+  },
   "logs.log-group": {
-    description: "CloudWatch Log Group",
+    kind: "CloudWatch Log Group",
     destroyer: deleteLogGroup,
   },
   "rds.cluster": {
-    description: "RDS Cluster",
+    kind: "RDS Cluster",
     destroyer: deleteDatabaseCluster,
   },
   "rds.cluster-pg": {
-    description: "RDS Cluster Parameter Group",
+    kind: "RDS Cluster Parameter Group",
     destroyer: deleteDatabaseClusterParameterGroup,
   },
   "rds.cluster-snapshot": {
-    description: "RDS Cluster Snapshot",
+    kind: "RDS Cluster Snapshot",
     destroyer: deleteDatabaseClusterSnapshot,
   },
   "rds.db": {
-    description: "RDS Database",
+    kind: "RDS Database",
     destroyer: deleteDatabaseInstance,
   },
   "rds.subgrp": {
-    description: "RDS Subnet Group",
+    kind: "RDS Subnet Group",
     destroyer: deleteDatabaseSubnetGroup,
   },
   s3: {
-    description: "S3 Bucket",
+    kind: "S3 Bucket",
     destroyer: deleteBucket,
   },
   "secretsmanager.secret": {
-    description: "Secrets Manager Secret",
+    kind: "Secrets Manager Secret",
     destroyer: deleteSecret,
   },
   "servicediscovery.namespace": {
-    description: "Service Discovery Namespace",
+    kind: "Service Discovery Namespace",
+    describer: describeDiscoveryNamespace,
     destroyer: deleteDiscoveryNamespace,
   },
   "servicediscovery.service": {
-    description: "Service Discovery Service",
+    kind: "Service Discovery Service",
     destroyer: deleteDiscoveryService,
+  },
+  sns: {
+    kind: "SNS Topic",
+    destroyer: deleteSnsTopic,
   },
 };
 
