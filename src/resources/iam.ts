@@ -3,6 +3,7 @@ import {
   DeleteGroupCommand,
   DeleteInstanceProfileCommand,
   DeletePolicyCommand,
+  DeletePolicyVersionCommand,
   DeleteRoleCommand,
   DeleteRolePolicyCommand,
   DeleteUserCommand,
@@ -11,9 +12,11 @@ import {
   IAMClient,
   InstanceProfile,
   ListAttachedRolePoliciesCommand,
+  ListPolicyVersionsCommand,
   ListRolePoliciesCommand,
   ListRolesCommand,
   ListRoleTagsCommand,
+  PolicyVersion,
   RemoveRoleFromInstanceProfileCommand,
   Role,
   Tag,
@@ -94,10 +97,34 @@ async function removeRoleFromInstanceProfile(InstanceProfileName: string, RoleNa
   await throttle(() => client.send(command));
 }
 
-export async function deletePolicy({ arn }: Pick<ResourceDestroyerParams, "arn">): Promise<void> {
+export async function deletePolicy({
+  arn,
+  resourceId,
+}: Pick<ResourceDestroyerParams, "arn" | "resourceId">): Promise<void> {
+  const versions = await listPolicyVersions(arn);
+  for (const version of versions) {
+    if (!version.IsDefaultVersion) {
+      logger.debug(`Deleting version ${version.VersionId} of policy ${resourceId}`);
+      await deletePolicyVersion(arn, version.VersionId!);
+    }
+  }
+
   const client = getClient();
   const command = new DeletePolicyCommand({ PolicyArn: arn });
   await throttle(() => client.send(command));
+}
+
+async function deletePolicyVersion(PolicyArn: string, VersionId: string): Promise<void> {
+  const client = getClient();
+  const command = new DeletePolicyVersionCommand({ PolicyArn, VersionId });
+  await throttle(() => client.send(command));
+}
+
+async function listPolicyVersions(PolicyArn: string): Promise<PolicyVersion[]> {
+  const client = getClient();
+  const command = new ListPolicyVersionsCommand({ PolicyArn });
+  const response = await throttle(() => client.send(command));
+  return response.Versions || [];
 }
 
 export async function deleteRole({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
