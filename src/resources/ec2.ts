@@ -200,9 +200,13 @@ export async function deleteNatGateway({
 }
 
 export async function describeNatGateway({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
-  const ngw = (await describeNatGateways([resourceId]))[0];
-  if (ngw.SubnetId) {
-    return `${resourceId} (${await describeSubnet({ resourceId: ngw.SubnetId })})`;
+  try {
+    const ngw = (await describeNatGateways([resourceId]))[0];
+    if (ngw.SubnetId) {
+      return `${resourceId} (${await describeSubnet({ resourceId: ngw.SubnetId })})`;
+    }
+  } catch (err) {
+    if (getErrorCode(err) !== "NatGatewayNotFound") throw err;
   }
   return resourceId;
 }
@@ -286,18 +290,22 @@ export async function deleteRouteTable({
 }
 
 export async function describeRouteTable({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
-  const rtb = (await describeRouteTables([resourceId]))[0];
-  if (rtb?.Tags) {
-    const name = rtb.Tags.find((tag) => tag.Key === "Name")?.Value;
-    if (name) {
-      return `${name} (${resourceId})`;
+  try {
+    const rtb = (await describeRouteTables([resourceId]))[0];
+    if (rtb?.Tags) {
+      const name = rtb.Tags.find((tag) => tag.Key === "Name")?.Value;
+      if (name) {
+        return `${name} (${resourceId})`;
+      }
     }
-  }
-  if (rtb?.Associations?.length) {
-    const subnetIds = rtb.Associations.map((assoc) => assoc.SubnetId) as string[];
-    const subnets = await describeSubnets(subnetIds);
-    const subnetDescs = subnets.map((subnet) => getSubnetDescription(subnet));
-    return `${resourceId} (${subnetDescs.join(", ")})`;
+    if (rtb?.Associations?.length) {
+      const subnetIds = rtb.Associations.map((assoc) => assoc.SubnetId) as string[];
+      const subnets = await describeSubnets(subnetIds);
+      const subnetDescs = subnets.map((subnet) => getSubnetDescription(subnet));
+      return `${resourceId} (${subnetDescs.join(", ")})`;
+    }
+  } catch (err) {
+    if (getErrorCode(err) !== "InvalidRouteTableID.NotFound") throw err;
   }
   return resourceId;
 }
