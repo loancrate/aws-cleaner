@@ -1,6 +1,7 @@
 import { KMSClient, ListAliasesCommand, ScheduleKeyDeletionCommand } from "@aws-sdk/client-kms";
 import { ResourceDescriberParams } from "../ResourceDescriber.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { getErrorCode } from "../awserror.js";
 
 let client: KMSClient | undefined;
 
@@ -12,12 +13,17 @@ function getClient(): KMSClient {
 }
 
 export async function deleteKmsKey({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const client = getClient();
-  const command = new ScheduleKeyDeletionCommand({
-    KeyId: resourceId,
-    PendingWindowInDays: 7,
-  });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new ScheduleKeyDeletionCommand({
+      KeyId: resourceId,
+      PendingWindowInDays: 7,
+    });
+    await client.send(command);
+  } catch (err) {
+    // Ignore keys pending deletion
+    if (getErrorCode(err) !== "KMSInvalidStateException") throw err;
+  }
 }
 
 export async function describeKmsKey({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
