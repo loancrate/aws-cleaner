@@ -14,6 +14,7 @@ import {
   DescribeDBClusterSnapshotsCommand,
   DescribeDBInstancesCommand,
   DescribeDBSnapshotsCommand,
+  ModifyDBClusterCommand,
   RDSClient,
 } from "@aws-sdk/client-rds";
 import { getErrorCode } from "../awserror.js";
@@ -33,6 +34,8 @@ export async function deleteDatabaseCluster({
   poller,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
   try {
+    await disableDeletionProtection(resourceId);
+
     const client = getClient();
     const command = new DeleteDBClusterCommand({
       DBClusterIdentifier: resourceId,
@@ -50,6 +53,15 @@ export async function deleteDatabaseCluster({
   } catch (err) {
     if (getErrorCode(err) !== "DBClusterNotFoundFault") throw err;
   }
+}
+
+async function disableDeletionProtection(DBClusterIdentifier: string): Promise<void> {
+  const client = getClient();
+  const command = new ModifyDBClusterCommand({
+    DBClusterIdentifier,
+    DeletionProtection: false,
+  });
+  await client.send(command);
 }
 
 async function describeDBCluster(DBClusterIdentifier: string): Promise<DBCluster | undefined> {
