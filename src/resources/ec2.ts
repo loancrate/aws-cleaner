@@ -120,17 +120,21 @@ export async function deleteInstance({
   resourceId,
   poller,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
-  const client = getClient();
-  const command = new TerminateInstancesCommand({ InstanceIds: [resourceId] });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new TerminateInstancesCommand({ InstanceIds: [resourceId] });
+    await client.send(command);
 
-  await poller(
-    async () => {
-      const state = await describeInstanceStatus(resourceId);
-      return state?.Name === InstanceStateName.terminated;
-    },
-    { description: `EC2 instance ${resourceId} to terminate` }
-  );
+    await poller(
+      async () => {
+        const state = await describeInstanceStatus(resourceId);
+        return state?.Name === InstanceStateName.terminated;
+      },
+      { description: `EC2 instance ${resourceId} to terminate` }
+    );
+  } catch (err) {
+    if (getErrorCode(err) !== "InvalidInstanceID.NotFound") throw err;
+  }
 }
 
 async function describeInstanceStatus(instanceId: string): Promise<InstanceState | undefined> {
