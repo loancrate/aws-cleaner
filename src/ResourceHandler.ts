@@ -5,6 +5,7 @@ import { deleteCloudWatchAlarm } from "./resources/cloudwatch.js";
 import {
   deleteElasticIp,
   deleteFlowLogs,
+  deleteInstance,
   deleteInternetGateway,
   deleteNatGateway,
   deleteRouteTable,
@@ -14,6 +15,7 @@ import {
   deleteVpc,
   describeElasticIp,
   describeFlowLogs,
+  describeInstance,
   describeNatGateway,
   describeRouteTable,
   describeSecurityGroup,
@@ -74,6 +76,11 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     kind: "EC2 Elastic IP",
     describer: describeElasticIp,
     destroyer: deleteElasticIp,
+  },
+  "ec2.instance": {
+    kind: "EC2 Instance",
+    describer: describeInstance,
+    destroyer: deleteInstance,
   },
   "ec2.internet-gateway": {
     kind: "EC2 Internet Gateway",

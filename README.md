@@ -42,6 +42,7 @@ The following types are currently supported:
   - Log Group
 - Elastic Compute Cloud (EC2)
   - Elastic IP
+  - Instance
   - Internet Gateway
   - NAT Gateway
   - Route Table

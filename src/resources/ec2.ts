@@ -8,6 +8,8 @@ import {
   DeleteVpcCommand,
   DescribeAddressesCommand,
   DescribeFlowLogsCommand,
+  DescribeInstanceStatusCommand,
+  DescribeInstancesCommand,
   DescribeInternetGatewaysCommand,
   DescribeNatGatewaysCommand,
   DescribeNetworkInterfacesCommand,
@@ -19,6 +21,8 @@ import {
   DetachInternetGatewayCommand,
   DisassociateRouteTableCommand,
   EC2Client,
+  InstanceState,
+  InstanceStateName,
   InternetGateway,
   IpPermission,
   NatGateway,
@@ -31,14 +35,15 @@ import {
   SecurityGroup,
   SecurityGroupRule,
   Subnet,
+  TerminateInstancesCommand,
 } from "@aws-sdk/client-ec2";
 import { DependencyEnumeratorParams } from "../DependencyEnumerator.js";
+import { ResourceDescriberParams } from "../ResourceDescriber.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 import { parseArn } from "../arn.js";
 import { getErrorCode } from "../awserror.js";
 import logger from "../logger.js";
 import { isNotNull } from "../typeUtil.js";
-import { ResourceDescriberParams } from "../ResourceDescriber.js";
 
 let client: EC2Client | undefined;
 
@@ -107,6 +112,44 @@ export async function describeFlowLogs({ resourceId }: Pick<ResourceDescriberPar
   if (log?.LogDestination) {
     const arn = parseArn(log.LogDestination);
     return `${log.LogDestinationType}:${arn.resourceId} (${resourceId})`;
+  }
+  return resourceId;
+}
+
+export async function deleteInstance({
+  resourceId,
+  poller,
+}: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
+  const client = getClient();
+  const command = new TerminateInstancesCommand({ InstanceIds: [resourceId] });
+  await client.send(command);
+
+  await poller(
+    async () => {
+      const state = await describeInstanceStatus(resourceId);
+      return state?.Name === InstanceStateName.terminated;
+    },
+    { description: `EC2 instance ${resourceId} to terminate` }
+  );
+}
+
+async function describeInstanceStatus(instanceId: string): Promise<InstanceState | undefined> {
+  const client = getClient();
+  const command = new DescribeInstanceStatusCommand({ InstanceIds: [instanceId], IncludeAllInstances: true });
+  const response = await client.send(command);
+  return response.InstanceStatuses?.[0].InstanceState;
+}
+
+export async function describeInstance({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
+  const client = getClient();
+  const command = new DescribeInstancesCommand({ InstanceIds: [resourceId] });
+  const response = await client.send(command);
+  const instance = response.Reservations?.[0].Instances?.[0];
+  if (instance?.Tags) {
+    const name = instance.Tags.find((tag) => tag.Key === "Name")?.Value;
+    if (name) {
+      return `${name} (${resourceId})`;
+    }
   }
   return resourceId;
 }

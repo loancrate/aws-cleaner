@@ -5,6 +5,7 @@ export type ResourceTypeDependencies = Record<ResourceType, ResourceType[]>;
 export const resourceTypeDependencies: ResourceTypeDependencies = {
   "cloudwatch.alarm": [],
   "ec2.elastic-ip": ["ec2.vpc"],
+  "ec2.instance": ["ec2.elastic-ip", "ec2.security-group", "ec2.subnet"],
   "ec2.internet-gateway": ["ec2.elastic-ip"],
   "ec2.natgateway": ["ec2.subnet"],
   "ec2.route-table": ["ec2.vpc"],

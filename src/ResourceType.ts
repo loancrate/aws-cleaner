@@ -1,6 +1,7 @@
 const resourceTypes = [
   "cloudwatch.alarm",
   "ec2.elastic-ip",
+  "ec2.instance",
   "ec2.internet-gateway",
   "ec2.natgateway",
   "ec2.route-table",
