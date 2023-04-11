@@ -144,7 +144,7 @@ export async function describeInstance({ resourceId }: Pick<ResourceDescriberPar
   const client = getClient();
   const command = new DescribeInstancesCommand({ InstanceIds: [resourceId] });
   const response = await client.send(command);
-  const instance = response.Reservations?.[0].Instances?.[0];
+  const instance = response.Reservations?.[0]?.Instances?.[0];
   if (instance?.Tags) {
     const name = instance.Tags.find((tag) => tag.Key === "Name")?.Value;
     if (name) {
