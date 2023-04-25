@@ -226,7 +226,7 @@ async function getWorkspace({ token }: TerraformConfig, id: string): Promise<Wor
     const data = await client.get(`workspaces/${id}`).json<WorkspaceResponse>();
     return data;
   } catch (err) {
-    if (err instanceof HTTPError && err.code === "404") {
+    if (err instanceof HTTPError && err.response.statusCode === 404) {
       return null;
     }
     throw err;
@@ -270,7 +270,7 @@ export async function deleteWorkspace({ token }: TerraformConfig, { id }: Terraf
     const client = getClient(token);
     await client.delete(`workspaces/${id}`);
   } catch (err) {
-    if (err instanceof HTTPError && err.code === "404") {
+    if (err instanceof HTTPError && err.response.statusCode === 404) {
       return;
     }
     throw err;
@@ -428,7 +428,7 @@ export async function createDestroyRun(
       .json<RunResponse>();
     return { id: result.data.id, status: result.data.attributes.status, workspace };
   } catch (err) {
-    if (err instanceof HTTPError && err.code === "404") {
+    if (err instanceof HTTPError && err.response.statusCode === 404) {
       return null;
     }
     throw err;
@@ -474,7 +474,7 @@ export async function getRun({ token }: TerraformConfig, id: string): Promise<Ru
     const data = await client.get(`runs/${id}`).json<RunResponse>();
     return data;
   } catch (err) {
-    if (err instanceof HTTPError && err.code === "404") {
+    if (err instanceof HTTPError && err.response.statusCode === 404) {
       return null;
     }
     throw err;
