@@ -60,6 +60,7 @@ The following types are currently supported:
   - Task Definition Family
 - ElastiCache
   - Cluster
+  - Snapshot
   - Subnet Group
 - Elastic Load Balancing (ELB)
   - Listener

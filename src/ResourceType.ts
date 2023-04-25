@@ -19,6 +19,7 @@ const resourceTypes = [
   // synthetic resource type
   "ecs.task-definition-family",
   "elasticache.cluster",
+  "elasticache.snapshot",
   "elasticache.subnetgroup",
   "elasticloadbalancing.listener",
   "elasticloadbalancing.listener-rule",

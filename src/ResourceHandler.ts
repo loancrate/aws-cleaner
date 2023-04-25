@@ -30,7 +30,7 @@ import {
   deleteTaskDefinition,
   deleteTaskDefinitionFamily,
 } from "./resources/ecs.js";
-import { deleteCacheCluster, deleteCacheSubnetGroup } from "./resources/elasticache.js";
+import { deleteCacheCluster, deleteCacheSnapshot, deleteCacheSubnetGroup } from "./resources/elasticache.js";
 import {
   deleteListener,
   deleteListenerRule,
@@ -148,6 +148,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "elasticache.cluster": {
     kind: "ElastiCache Cluster",
     destroyer: deleteCacheCluster,
+  },
+  "elasticache.snapshot": {
+    kind: "ElastiCache Snapshot",
+    destroyer: deleteCacheSnapshot,
   },
   "elasticache.subnetgroup": {
     kind: "ElastiCache Subnet Group",

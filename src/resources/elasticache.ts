@@ -2,11 +2,12 @@ import {
   CacheCluster,
   DeleteCacheClusterCommand,
   DeleteCacheSubnetGroupCommand,
+  DeleteSnapshotCommand,
   DescribeCacheClustersCommand,
   ElastiCacheClient,
 } from "@aws-sdk/client-elasticache";
-import { getErrorCode } from "../awserror.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { getErrorCode } from "../awserror.js";
 
 let client: ElastiCacheClient | undefined;
 
@@ -47,6 +48,14 @@ export async function deleteCacheCluster({
   } catch (err) {
     if (getErrorCode(err) !== "CacheClusterNotFound") throw err;
   }
+}
+
+export async function deleteCacheSnapshot({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  const client = getClient();
+  const command = new DeleteSnapshotCommand({
+    SnapshotName: resourceId,
+  });
+  await client.send(command);
 }
 
 export async function deleteCacheSubnetGroup({
