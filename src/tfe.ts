@@ -442,6 +442,7 @@ export async function waitForRun(config: TerraformConfig, { id, status, workspac
     logger.info(`${workspace.name} ${id} is now ${newStatus}`);
     switch (newStatus) {
       case "applied":
+      case "planned_and_finished":
       case "discarded":
       case "errored":
       case "canceled":
