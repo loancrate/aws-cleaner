@@ -105,7 +105,12 @@ export async function deleteTask({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
   const [cluster, task] = resourceId.split("/", 2);
-  await stopTask(cluster, task, "Deleting task");
+  try {
+    await stopTask(cluster, task, "Deleting task");
+  } catch (err) {
+    // Ignore "The referenced task was not found"
+    if (getErrorCode(err) !== "InvalidParameterException") throw err;
+  }
 }
 
 async function listTasks(cluster: string, serviceName?: string, desiredStatus?: DesiredStatus): Promise<string[]> {
