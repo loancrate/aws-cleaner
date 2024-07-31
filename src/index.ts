@@ -276,7 +276,7 @@ try {
               if (destroyRun) {
                 const status = await waitForRun(configuration.terraformCloud, destroyRun);
                 if (status !== "applied") {
-                  logger.info(`${environment}: Destroy run failed with status ${status}`);
+                  logger.error(`${environment}: Destroy run failed with status ${status}`);
                   continue;
                 }
               }
@@ -285,7 +285,7 @@ try {
             destroyedWorkspaceIds.add(workspace.id);
             logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
           } else {
-            logger.info(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
+            logger.warn(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
           }
         }
       }
