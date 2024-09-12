@@ -35,6 +35,7 @@ export interface TerraformCloudConfiguration {
   token: string;
   organization: string;
   destroyWorkspaces: boolean;
+  destroyResources: boolean;
 }
 
 let configuration: Configuration | undefined;
@@ -61,11 +62,13 @@ export async function getConfiguration(): Promise<Configuration> {
     const terraformCloudToken = getString(body, "TERRAFORM_CLOUD_TOKEN");
     const terraformCloudOrganization = getString(body, "TERRAFORM_CLOUD_ORGANIZATION");
     const destroyTerraformWorkspaces = getBoolean(body, "DESTROY_TERRAFORM_WORKSPACES", false);
+    const destroyTerraformResources = getBoolean(body, "DESTROY_TERRAFORM_RESOURCES", false);
     if (terraformCloudToken && terraformCloudOrganization) {
       terraformCloud = {
         token: terraformCloudToken,
         organization: terraformCloudOrganization,
         destroyWorkspaces: destroyTerraformWorkspaces,
+        destroyResources: destroyTerraformResources,
       };
     }
 

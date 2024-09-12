@@ -298,7 +298,10 @@ try {
     return envFilter(env) && !workspaces?.some((ws) => ws.name.includes(env));
   };
 
-  const resources = await getEnvironmentResources(envFilterSkipWorkspaces, cache);
+  const resources = await getEnvironmentResources(
+    configuration.terraformCloud?.destroyResources ? envFilter : envFilterSkipWorkspaces,
+    cache,
+  );
 
   summarizeResources(resources);
 

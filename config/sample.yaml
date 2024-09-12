@@ -46,6 +46,10 @@ TERRAFORM_CLOUD_ORGANIZATION:
 # Whether to destroy Terraform workspaces for pull requests that aren't currently open.
 DESTROY_TERRAFORM_WORKSPACES: false
 
+# Whether to destroy resources managed by a Terraform workspace.
+# This is useful if Terraform is failing to destroy the workspace.
+DESTROY_TERRAFORM_RESOURCES: false
+
 # Whether to disable caching of discovered resources, pull requests, workspaces, etc.
 CACHE_DISABLED: false
 
