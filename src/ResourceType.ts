@@ -1,4 +1,5 @@
 const resourceTypes = [
+  "cloudfront.distribution",
   "cloudwatch.alarm",
   "ec2.elastic-ip",
   "ec2.instance",
@@ -19,6 +20,7 @@ const resourceTypes = [
   // synthetic resource type
   "ecs.task-definition-family",
   "elasticache.cluster",
+  "elasticache.replicationgroup",
   "elasticache.snapshot",
   "elasticache.subnetgroup",
   "elasticloadbalancing.listener",
@@ -38,6 +40,7 @@ const resourceTypes = [
   "rds.cluster-snapshot",
   "rds.db",
   "rds.subgrp",
+  "route53.hostedzone",
   "s3",
   "secretsmanager.secret",
   "servicediscovery.namespace",

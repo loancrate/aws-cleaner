@@ -174,10 +174,10 @@ async function addTask(
   resourceType: ResourceType,
   schedulerBuilder: SchedulerBuilder,
   cache: Cache
-) {
+): Promise<void> {
   const { resourceId } = arnFields;
   const { kind, describer, destroyer } = getResourceHandler(resourceType);
-  const name = describer ? await describer({ arn, ...arnFields }) : resourceId;
+  const name = (describer && (await describer({ arn, ...arnFields }))) || resourceId;
   if (destroyer) {
     let task: Task;
     if (configuration.dryRun) {

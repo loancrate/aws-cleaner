@@ -19,6 +19,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.309.0",
     "@aws-sdk/client-cloudwatch": "^3.309.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.299.0",
     "@aws-sdk/client-ec2": "^3.299.0",

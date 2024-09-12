@@ -42,17 +42,17 @@ export async function deleteDatabaseCluster({
       SkipFinalSnapshot: true,
     });
     await client.send(command);
-
-    await poller(
-      async () => {
-        const cluster = await describeDBCluster(resourceId);
-        return !cluster;
-      },
-      { description: `RDS cluster ${resourceId} to be deleted` }
-    );
   } catch (err) {
     if (getErrorCode(err) !== "DBClusterNotFoundFault") throw err;
   }
+
+  await poller(
+    async () => {
+      const cluster = await describeDBCluster(resourceId);
+      return !cluster;
+    },
+    { description: `RDS cluster ${resourceId} to be deleted` }
+  );
 }
 
 async function disableDeletionProtection(DBClusterIdentifier: string): Promise<void> {
@@ -91,19 +91,20 @@ export async function deleteDatabaseClusterSnapshot({
       DBClusterSnapshotIdentifier: resourceId,
     });
     await client.send(command);
-
-    await poller(
-      async () => {
-        const snapshot = await describeDBClusterSnapshots(resourceId);
-        return !snapshot;
-      },
-      { description: `RDS cluster snapshot ${resourceId} to be deleted` }
-    );
   } catch (err) {
-    // "Only manual snapshots may be deleted."
     const code = getErrorCode(err);
-    if (code !== "DBClusterSnapshotNotFoundFault" && code !== "InvalidDBClusterSnapshotStateFault") throw err;
+    if (code === "DBClusterSnapshotNotFoundFault") return;
+    if (code !== "InvalidDBClusterSnapshotStateFault") throw err;
   }
+
+  await poller(
+    async () => {
+      const snapshot = await describeDBClusterSnapshots(resourceId);
+      // "Only manual snapshots may be deleted."
+      return !snapshot || snapshot.SnapshotType !== "manual";
+    },
+    { description: `RDS cluster snapshot ${resourceId} to be deleted` }
+  );
 }
 
 async function describeDBClusterSnapshots(DBClusterSnapshotIdentifier: string): Promise<DBClusterSnapshot | undefined> {
@@ -125,17 +126,19 @@ export async function deleteDatabaseInstance({
       SkipFinalSnapshot: true,
     });
     await client.send(command);
-
-    await poller(
-      async () => {
-        const instance = await describeDBInstance(resourceId);
-        return !instance;
-      },
-      { description: `RDS instance ${resourceId} to be deleted` }
-    );
   } catch (err) {
-    if (getErrorCode(err) !== "DBInstanceNotFound") throw err;
+    const code = getErrorCode(err);
+    if (code === "DBInstanceNotFound") return;
+    if (code !== "InvalidDBInstanceState") throw err;
   }
+
+  await poller(
+    async () => {
+      const instance = await describeDBInstance(resourceId);
+      return !instance;
+    },
+    { description: `RDS instance ${resourceId} to be deleted` }
+  );
 }
 
 async function describeDBInstance(DBInstanceIdentifier: string): Promise<DBInstance | undefined> {

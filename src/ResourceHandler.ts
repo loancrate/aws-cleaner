@@ -1,6 +1,7 @@
 import { DependencyEnumerator } from "./DependencyEnumerator.js";
 import { ResourceDescriber } from "./ResourceDescriber.js";
 import { ResourceDestroyer } from "./ResourceDestroyer.js";
+import { deleteCloudFrontDistribution } from "./resources/cloudfront.js";
 import { deleteCloudWatchAlarm } from "./resources/cloudwatch.js";
 import {
   deleteElasticIp,
@@ -30,7 +31,12 @@ import {
   deleteTaskDefinition,
   deleteTaskDefinitionFamily,
 } from "./resources/ecs.js";
-import { deleteCacheCluster, deleteCacheSnapshot, deleteCacheSubnetGroup } from "./resources/elasticache.js";
+import {
+  deleteCacheCluster,
+  deleteCacheSnapshot,
+  deleteCacheSubnetGroup,
+  deleteReplicationGroup,
+} from "./resources/elasticache.js";
 import {
   deleteListener,
   deleteListenerRule,
@@ -50,6 +56,7 @@ import {
   deleteDatabaseInstance,
   deleteDatabaseSubnetGroup,
 } from "./resources/rds.js";
+import { deleteHostedZone } from "./resources/route53.js";
 import { deleteBucket } from "./resources/s3.js";
 import { deleteSecret } from "./resources/secretsmanager.js";
 import {
@@ -68,6 +75,10 @@ export interface ResourceHandler {
 }
 
 const resourceHandlers: Record<ResourceType, ResourceHandler> = {
+  "cloudfront.distribution": {
+    kind: "CloudFront Distribution",
+    destroyer: deleteCloudFrontDistribution,
+  },
   "cloudwatch.alarm": {
     kind: "CloudWatch Alarm",
     destroyer: deleteCloudWatchAlarm,
@@ -149,6 +160,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     kind: "ElastiCache Cluster",
     destroyer: deleteCacheCluster,
   },
+  "elasticache.replicationgroup": {
+    kind: "ElastiCache Replication Group",
+    destroyer: deleteReplicationGroup,
+  },
   "elasticache.snapshot": {
     kind: "ElastiCache Snapshot",
     destroyer: deleteCacheSnapshot,
@@ -225,6 +240,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "rds.subgrp": {
     kind: "RDS Subnet Group",
     destroyer: deleteDatabaseSubnetGroup,
+  },
+  "route53.hostedzone": {
+    kind: "Route 53 Hosted Zone",
+    destroyer: deleteHostedZone,
   },
   s3: {
     kind: "S3 Bucket",

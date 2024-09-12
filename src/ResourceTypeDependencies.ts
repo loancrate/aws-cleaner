@@ -3,6 +3,7 @@ import { ResourceType } from "./ResourceType.js";
 export type ResourceTypeDependencies = Record<ResourceType, ResourceType[]>;
 
 export const resourceTypeDependencies: ResourceTypeDependencies = {
+  "cloudfront.distribution": [],
   "cloudwatch.alarm": [],
   "ec2.elastic-ip": ["ec2.vpc"],
   "ec2.instance": ["ec2.elastic-ip", "ec2.security-group", "ec2.subnet"],
@@ -37,6 +38,13 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "ecs.task-definition": ["ecs.task-definition-family", "iam.role", "logs.log-group"],
   "ecs.task-definition-family": [],
   "elasticache.cluster": [
+    "ec2.internet-gateway",
+    "ec2.security-group",
+    "elasticache.replicationgroup",
+    "elasticache.snapshot",
+    "elasticache.subnetgroup",
+  ],
+  "elasticache.replicationgroup": [
     "ec2.internet-gateway",
     "ec2.security-group",
     "elasticache.snapshot",
@@ -75,6 +83,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   ],
   "rds.db": ["ec2.internet-gateway", "ec2.security-group", "logs.log-group", "rds.cluster", "rds.subgrp"],
   "rds.subgrp": ["ec2.subnet"],
+  "route53.hostedzone": [],
   s3: ["iam.policy"],
   "secretsmanager.secret": [],
   "servicediscovery.namespace": [],

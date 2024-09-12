@@ -43,7 +43,7 @@ export async function deleteRepository({ resourceId }: Pick<ResourceDestroyerPar
     }
 
     const client = getClient();
-    const command = new DeleteRepositoryCommand({ repositoryName: resourceId });
+    const command = new DeleteRepositoryCommand({ repositoryName: resourceId, force: true });
     await client.send(command);
   } catch (err) {
     if (getErrorCode(err) !== "RepositoryNotFoundException") throw err;

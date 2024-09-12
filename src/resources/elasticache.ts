@@ -2,9 +2,12 @@ import {
   CacheCluster,
   DeleteCacheClusterCommand,
   DeleteCacheSubnetGroupCommand,
+  DeleteReplicationGroupCommand,
   DeleteSnapshotCommand,
   DescribeCacheClustersCommand,
+  DescribeReplicationGroupsCommand,
   ElastiCacheClient,
+  ReplicationGroup,
 } from "@aws-sdk/client-elasticache";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 import { getErrorCode } from "../awserror.js";
@@ -32,6 +35,11 @@ export async function deleteCacheCluster({
   poller,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
   try {
+    const cluster = await describeCacheCluster(resourceId);
+    if (cluster?.ReplicationGroupId) {
+      await deleteReplicationGroup({ resourceId: cluster.ReplicationGroupId, poller });
+    }
+
     const client = getClient();
     const command = new DeleteCacheClusterCommand({
       CacheClusterId: resourceId,
@@ -47,6 +55,38 @@ export async function deleteCacheCluster({
     );
   } catch (err) {
     if (getErrorCode(err) !== "CacheClusterNotFound") throw err;
+  }
+}
+
+async function describeReplicationGroup(id: string): Promise<ReplicationGroup | undefined> {
+  const client = getClient();
+  const command = new DescribeReplicationGroupsCommand({
+    ReplicationGroupId: id,
+  });
+  const output = await client.send(command);
+  return output.ReplicationGroups?.[0];
+}
+
+export async function deleteReplicationGroup({
+  resourceId,
+  poller,
+}: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
+  try {
+    const client = getClient();
+    const command = new DeleteReplicationGroupCommand({
+      ReplicationGroupId: resourceId,
+    });
+    await client.send(command);
+
+    await poller(
+      async () => {
+        const group = await describeReplicationGroup(resourceId);
+        return !group || group.Status === "deleted";
+      },
+      { description: `ElastiCache replication group ${resourceId} to be deleted` }
+    );
+  } catch (err) {
+    if (getErrorCode(err) !== "ReplicationGroupNotFoundFault") throw err;
   }
 }
 
