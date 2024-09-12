@@ -1,4 +1,4 @@
-import { compare, compareNumericString, compareStringOrNumber } from "./compare";
+import { compare, compareNumericString, compareStringOrNumber } from "./compare.js";
 
 test("compare", () => {
   expect(compare(1, 1)).toBe(0);
