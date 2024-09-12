@@ -1,4 +1,5 @@
 import {
+  AttachmentStatus,
   DeleteFlowLogsCommand,
   DeleteInternetGatewayCommand,
   DeleteNatGatewayCommand,
@@ -130,7 +131,7 @@ export async function deleteInstance({
         const state = await describeInstanceStatus(resourceId);
         return state?.Name === InstanceStateName.terminated;
       },
-      { description: `EC2 instance ${resourceId} to terminate` }
+      { description: `EC2 instance ${resourceId} to terminate` },
     );
   } catch (err) {
     if (getErrorCode(err) !== "InvalidInstanceID.NotFound") throw err;
@@ -179,7 +180,7 @@ export async function deleteInternetGateway({
         }
         let detaching = false;
         for (const attachment of igw.Attachments) {
-          if (attachment.VpcId && attachment.State === "available") {
+          if (attachment.VpcId && attachment.State === AttachmentStatus.attached) {
             vpcId = attachment.VpcId;
             logger.info(`Detaching internet gateway ${resourceId} from VPC ${attachment.VpcId}`);
             await detachInternetGateway(resourceId, attachment.VpcId);
@@ -193,7 +194,7 @@ export async function deleteInternetGateway({
         }
         return !detaching;
       },
-      { description: `internet gateway ${resourceId} to detach` }
+      { description: `internet gateway ${resourceId} to detach` },
     );
 
     if (exists) {
@@ -239,7 +240,7 @@ export async function deleteNatGateway({
         const ngw = (await describeNatGateways([resourceId]))[0];
         return !ngw || ngw.State === NatGatewayState.DELETED;
       },
-      { description: `NAT gateway ${resourceId} to be deleted` }
+      { description: `NAT gateway ${resourceId} to be deleted` },
     );
   } catch (err) {
     if (getErrorCode(err) !== "NatGatewayNotFound") throw err;
@@ -310,20 +311,20 @@ export async function deleteRouteTable({
         for (const association of rtb.Associations) {
           if (association.RouteTableAssociationId && association.AssociationState?.State === "associated") {
             logger.info(
-              `Disassociating route table ${resourceId} from ${association.GatewayId || association.SubnetId}`
+              `Disassociating route table ${resourceId} from ${association.GatewayId || association.SubnetId}`,
             );
             await disassociateRouteTable(association.RouteTableAssociationId);
             disassociating = true;
           } else if (association.AssociationState?.State === "disassociating") {
             logger.debug(
-              `Route table ${resourceId} is disassociating from ${association.GatewayId || association.SubnetId}`
+              `Route table ${resourceId} is disassociating from ${association.GatewayId || association.SubnetId}`,
             );
             disassociating = true;
           }
         }
         return !disassociating;
       },
-      { description: `route table ${resourceId} to disassociate` }
+      { description: `route table ${resourceId} to disassociate` },
     );
 
     if (exists) {
@@ -423,7 +424,7 @@ function addSecurityGroupDependencies(
   IpPermissions: IpPermission[] | undefined,
   VpcId: string | undefined,
   fullDeps: Set<string>,
-  newDeps: string[]
+  newDeps: string[],
 ) {
   if (IpPermissions) {
     for (const ipp of IpPermissions) {

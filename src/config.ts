@@ -167,5 +167,10 @@ function getStringsOrRegExps(obj: Record<string, unknown>, name: string): (strin
 }
 
 function getDuration(obj: Record<string, unknown>, name: string, def: string): number {
-  return parseDuration(getString(obj, name, def));
+  let duration = parseDuration(getString(obj, name, def));
+  if (duration == null) {
+    duration = parseDuration(def);
+    assert(duration != null, "Invalid default duration");
+  }
+  return duration;
 }

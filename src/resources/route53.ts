@@ -10,8 +10,8 @@ import {
   ResourceRecordSet,
   Route53Client,
 } from "@aws-sdk/client-route-53";
-import { ResourceDestroyerParams } from "../ResourceDestroyer";
-import { Poller } from "../poll";
+import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { Poller } from "../poll.js";
 
 let client: Route53Client | undefined;
 
@@ -59,7 +59,7 @@ async function deleteRecordSets(zoneId: string, recordSets: ResourceRecordSet[],
         const response = await client.send(command);
         return response.ChangeInfo?.Status === "INSYNC";
       },
-      { description: `${recordSets.length} DNS record sets to be deleted` }
+      { description: `${recordSets.length} DNS record sets to be deleted` },
     );
   }
 }
