@@ -89,7 +89,7 @@ export class SchedulerBuilder {
               groupKey,
               notifyGroups: group.notifyGroups?.map((g) => makeGroupKey(g.partitionKey, g.category)),
             },
-            `Added to dependent groups`
+            `Added to dependent groups`,
           );
         }
       }
@@ -102,11 +102,11 @@ export class SchedulerBuilder {
       }
     }
     initialGroups.sort(
-      (a, b) => compareNumericString(a.partitionKey || "", b.partitionKey || "") || compare(a.category, b.category)
+      (a, b) => compareNumericString(a.partitionKey || "", b.partitionKey || "") || compare(a.category, b.category),
     );
     logger.debug(
       { initialGroups: initialGroups.map((g) => makeGroupKey(g.partitionKey, g.category)) },
-      "Built initial groups"
+      "Built initial groups",
     );
 
     return new Scheduler(initialGroups);
@@ -166,7 +166,7 @@ export class Scheduler {
 
   private async startGroup(
     group: ExecutionGroup,
-    { maximumConcurrency = 20, continueAfterErrors = false }: SchedulerOptions
+    { maximumConcurrency = 20, continueAfterErrors = false }: SchedulerOptions,
   ): Promise<void> {
     const { partitionKey, category, pendingTasks } = group;
     const groupKey = makeGroupKey(partitionKey, category);

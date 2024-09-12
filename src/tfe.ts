@@ -252,7 +252,7 @@ export async function isWorkspaceRunning(config: TerraformConfig, workspace: Ter
 
 export async function getWorkspaceCurrentRun(
   config: TerraformConfig,
-  workspace: TerraformWorkspace
+  workspace: TerraformWorkspace,
 ): Promise<TerraformRun | null> {
   const workspaceInfo = await getWorkspace(config, workspace.id);
   const currentRun = workspaceInfo?.data.relationships["current-run"];
@@ -358,7 +358,7 @@ interface RunResponse {
           {
             id: string;
             type: "run-events";
-          }
+          },
         ];
         links: {
           related: string;
@@ -397,7 +397,7 @@ export interface TerraformRun {
 
 export async function createDestroyRun(
   config: TerraformConfig,
-  workspace: TerraformWorkspace
+  workspace: TerraformWorkspace,
 ): Promise<TerraformRun | null> {
   try {
     const client = getClient(config.token);

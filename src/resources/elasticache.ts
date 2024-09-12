@@ -51,7 +51,7 @@ export async function deleteCacheCluster({
         const cluster = await describeCacheCluster(resourceId);
         return !cluster || cluster.CacheClusterStatus === "deleted";
       },
-      { description: `ElastiCache cluster ${resourceId} to be deleted` }
+      { description: `ElastiCache cluster ${resourceId} to be deleted` },
     );
   } catch (err) {
     if (getErrorCode(err) !== "CacheClusterNotFound") throw err;
@@ -83,7 +83,7 @@ export async function deleteReplicationGroup({
         const group = await describeReplicationGroup(resourceId);
         return !group || group.Status === "deleted";
       },
-      { description: `ElastiCache replication group ${resourceId} to be deleted` }
+      { description: `ElastiCache replication group ${resourceId} to be deleted` },
     );
   } catch (err) {
     if (getErrorCode(err) !== "ReplicationGroupNotFoundFault") throw err;

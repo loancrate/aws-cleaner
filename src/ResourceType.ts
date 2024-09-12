@@ -50,7 +50,7 @@ const resourceTypes = [
 
 const resourceTypeSet = new Set<string>(resourceTypes);
 
-export type ResourceType = typeof resourceTypes[number];
+export type ResourceType = (typeof resourceTypes)[number];
 
 export function isResourceType(s: string): s is ResourceType {
   return resourceTypeSet.has(s);

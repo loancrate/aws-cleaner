@@ -35,7 +35,7 @@ export async function getPullRequestNumbers({ token, owner, repository }: Github
     {
       owner,
       repository,
-    }
+    },
   )) as {
     repository: {
       openPullRequests: { nodes: { number: number }[] };

@@ -60,7 +60,7 @@ export async function disableCloudFrontDistribution({
       const distribution = await getDistribution(resourceId);
       return distribution?.Status !== "InProgress";
     },
-    { description: `distribution ${resourceId} to be disabled` }
+    { description: `distribution ${resourceId} to be disabled` },
   );
 
   return etag;

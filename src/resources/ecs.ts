@@ -64,12 +64,12 @@ export async function deleteCluster({
           taskArns.map(async (arn) => {
             logger.debug(`Stopping task ${arn} in ECS cluster ${cluster}`);
             return await stopTask(cluster, arn, "Deleting cluster");
-          })
+          }),
         );
       }
       return !taskArns.length;
     },
-    { description: `tasks to terminate in ECS cluster ${cluster}` }
+    { description: `tasks to terminate in ECS cluster ${cluster}` },
   );
 
   const client = getClient();
@@ -96,7 +96,7 @@ export async function deleteService({
         const notStopped = tasks.filter((task) => task.lastStatus !== "STOPPED");
         return !notStopped.length;
       },
-      { description: `${service} tasks to terminate in ECS cluster ${cluster}` }
+      { description: `${service} tasks to terminate in ECS cluster ${cluster}` },
     );
   }
 }
@@ -156,7 +156,7 @@ export async function deleteTaskDefinition({ resourceId }: Pick<ResourceDestroye
 
 export async function listTaskDefinitionFamilies(
   familyPrefix?: string,
-  status = TaskDefinitionFamilyStatus.ACTIVE
+  status = TaskDefinitionFamilyStatus.ACTIVE,
 ): Promise<string[]> {
   const result: string[] = [];
   for (let nextToken: string | undefined; ; ) {

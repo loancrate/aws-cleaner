@@ -157,7 +157,7 @@ function summarizeResources(resources: Resource[]): void {
   }
   logger.info("Environments:");
   for (const [environment, count] of Array.from(environmentCounts.entries()).sort((a, b) =>
-    compareNumericString(a[0], b[0])
+    compareNumericString(a[0], b[0]),
   )) {
     logger.info(`  ${environment}: ${count}`);
   }
@@ -173,7 +173,7 @@ async function addTask(
   { arn, arnFields, environment }: ParsedResource,
   resourceType: ResourceType,
   schedulerBuilder: SchedulerBuilder,
-  cache: Cache
+  cache: Cache,
 ): Promise<void> {
   const { resourceId } = arnFields;
   const { kind, describer, destroyer } = getResourceHandler(resourceType);

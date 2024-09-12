@@ -57,7 +57,7 @@ export async function deleteLoadBalancer({
         const response = await client.send(command);
         return !response.LoadBalancers?.length;
       },
-      { description: `ELB Load Balancer ${resourceId} to be deleted` }
+      { description: `ELB Load Balancer ${resourceId} to be deleted` },
     );
   } catch (err) {
     if (getErrorCode(err) !== "LoadBalancerNotFound") throw err;

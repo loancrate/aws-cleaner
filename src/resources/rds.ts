@@ -51,7 +51,7 @@ export async function deleteDatabaseCluster({
       const cluster = await describeDBCluster(resourceId);
       return !cluster;
     },
-    { description: `RDS cluster ${resourceId} to be deleted` }
+    { description: `RDS cluster ${resourceId} to be deleted` },
   );
 }
 
@@ -103,7 +103,7 @@ export async function deleteDatabaseClusterSnapshot({
       // "Only manual snapshots may be deleted."
       return !snapshot || snapshot.SnapshotType !== "manual";
     },
-    { description: `RDS cluster snapshot ${resourceId} to be deleted` }
+    { description: `RDS cluster snapshot ${resourceId} to be deleted` },
   );
 }
 
@@ -137,7 +137,7 @@ export async function deleteDatabaseInstance({
       const instance = await describeDBInstance(resourceId);
       return !instance;
     },
-    { description: `RDS instance ${resourceId} to be deleted` }
+    { description: `RDS instance ${resourceId} to be deleted` },
   );
 }
 
@@ -173,7 +173,7 @@ export async function deleteDatabaseSnapshot({
       const snapshot = await describeDBSnapshots(resourceId);
       return !snapshot;
     },
-    { description: `RDS snapshot ${resourceId} to be deleted` }
+    { description: `RDS snapshot ${resourceId} to be deleted` },
   );
 }
 
