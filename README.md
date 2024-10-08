@@ -37,6 +37,8 @@ For workspaces that are not deleted, we will skip the corresponding environments
 AWS resource types are added as we encounter them and can test deletion of them.
 The following types are currently supported:
 
+- CloudFront
+  - Distribution
 - CloudWatch
   - Alarm
   - Log Group
@@ -60,6 +62,7 @@ The following types are currently supported:
   - Task Definition Family
 - ElastiCache
   - Cluster
+  - Replication Group
   - Snapshot
   - Subnet Group
 - Elastic Load Balancing (ELB)
@@ -85,6 +88,8 @@ The following types are currently supported:
   - Cluster Snapshot
   - Database
   - Subnet Group
+- Route 53
+  - Zone
 - Simple Storage Service (S3)
   - Bucket
 - Secrets Manager
@@ -99,7 +104,7 @@ The following types are currently supported:
 
 This application is currently designed to be run from source,
 so start by cloning the repository at `https://github.com/loancrate/aws-cleaner.git`.
-It requires [Node.js](https://nodejs.org/en/) 16+.
+It requires [Node.js](https://nodejs.org/en/) 20+.
 If you're using the [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm), just run `nvm install`.
 Then install package dependencies using `npm install`.
 All together, it looks something like this:
