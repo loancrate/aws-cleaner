@@ -72,16 +72,18 @@ The following types are currently supported:
   - Target Group
 - EventBridge
   - Rule
+- Identity and Access Management (IAM)
+  - Instance Profile
+  - Policy
+  - Role
 - Kafka (MSK)
   - Cluster
 - Key Management Service (KMS)
   - Key
 - Kinesis Firehose
   - Delivery Stream
-- Identity and Access Management (IAM)
-  - Instance Profile
-  - Policy
-  - Role
+- Location
+  - Place Index
 - Relational Database Service (RDS)
   - Cluster
   - Cluster Parameter Group

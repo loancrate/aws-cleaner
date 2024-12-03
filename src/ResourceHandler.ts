@@ -48,6 +48,7 @@ import { deleteDeliveryStream } from "./resources/firehose.js";
 import { deleteInstanceProfile, deletePolicy, deleteRole } from "./resources/iam.js";
 import { deleteKafkaCluster } from "./resources/kafka.js";
 import { deleteKmsKey, describeKmsKey } from "./resources/kms.js";
+import { deleteLocationPlaceIndex } from "./resources/location.js";
 import { deleteLogGroup } from "./resources/logs.js";
 import {
   deleteDatabaseCluster,
@@ -195,6 +196,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "firehose.deliverystream": {
     kind: "Kinesis Firehose Delivery Stream",
     destroyer: deleteDeliveryStream,
+  },
+  "geo.place-index": {
+    kind: "Amazon Location Service Place Index",
+    destroyer: deleteLocationPlaceIndex,
   },
   "iam.instance-profile": {
     kind: "IAM Instance Profile",

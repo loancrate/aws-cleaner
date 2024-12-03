@@ -64,6 +64,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "elasticloadbalancing.targetgroup": ["ec2.vpc"],
   "events.rule": [],
   "firehose.deliverystream": [],
+  "geo.place-index": [],
   "iam.instance-profile": ["iam.role"],
   "iam.policy": [],
   "iam.role": ["iam.policy"],

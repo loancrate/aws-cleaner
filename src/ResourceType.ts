@@ -29,6 +29,7 @@ const resourceTypes = [
   "elasticloadbalancing.targetgroup",
   "events.rule",
   "firehose.deliverystream",
+  "geo.place-index",
   "iam.instance-profile",
   "iam.policy",
   "iam.role",
