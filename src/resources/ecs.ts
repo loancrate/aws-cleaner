@@ -87,7 +87,11 @@ export async function deleteService({
 
   const client = getClient();
   const command = new DeleteServiceCommand({ cluster, service, force: true });
-  await throttle(clusterServiceResourceModifyRateLimiter, () => client.send(command));
+  try {
+    await throttle(clusterServiceResourceModifyRateLimiter, () => client.send(command));
+  } catch (err) {
+    if (getErrorCode(err) !== "ServiceNotFoundException") throw err;
+  }
 
   if (taskArns.length > 0) {
     await poller(
@@ -116,8 +120,15 @@ export async function deleteTask({
 async function listTasks(cluster: string, serviceName?: string, desiredStatus?: DesiredStatus): Promise<string[]> {
   const client = getClient();
   const command = new ListTasksCommand({ cluster, serviceName, desiredStatus });
-  const response = await throttle(clusterResourceReadRateLimiter, () => client.send(command));
-  return response.taskArns || [];
+  try {
+    const response = await throttle(clusterResourceReadRateLimiter, () => client.send(command));
+    return response.taskArns || [];
+  } catch (err) {
+    if (getErrorCode(err) === "ServiceNotFoundException") {
+      return [];
+    }
+    throw err;
+  }
 }
 
 async function describeTasks(cluster: string, tasks: string[]): Promise<Task[]> {

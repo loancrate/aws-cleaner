@@ -486,7 +486,11 @@ export async function deleteSubnet({ resourceId }: Pick<ResourceDestroyerParams,
     const command = new DeleteSubnetCommand({ SubnetId: resourceId });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "DependencyViolation") {
+    const code = getErrorCode(err);
+    if (code === "InvalidSubnetID.NotFound") {
+      return;
+    }
+    if (code === "DependencyViolation") {
       const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("subnet-id", resourceId));
       throw new Error(`Subnet ${resourceId} has dependent network interfaces: ${summary}`);
     }
@@ -512,8 +516,15 @@ function getSubnetDescription(subnet: Subnet, resourceId = subnet.SubnetId): str
 async function describeSubnets(subnetIds: string[]): Promise<Subnet[]> {
   const client = getClient();
   const command = new DescribeSubnetsCommand({ SubnetIds: subnetIds });
-  const response = await client.send(command);
-  return response.Subnets || [];
+  try {
+    const response = await client.send(command);
+    return response.Subnets || [];
+  } catch (err) {
+    if (getErrorCode(err) === "InvalidSubnetID.NotFound") {
+      return [];
+    }
+    throw err;
+  }
 }
 
 export async function deleteVpc({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
