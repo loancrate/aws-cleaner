@@ -7,6 +7,7 @@ import { compare, compareNumericString } from "./compare.js";
 import { getConfiguration } from "./config.js";
 import { getPullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
+import { matchPatterns } from "./matchPatterns.js";
 import { getPoller } from "./poll.js";
 import { getResourceHandler } from "./ResourceHandler.js";
 import { listTaskDefinitionFamilies } from "./resources/ecs.js";
@@ -24,24 +25,6 @@ import {
   TerraformWorkspace,
   waitForRun,
 } from "./tfe.js";
-
-function matchPatterns(s: string | null | undefined, patterns: (string | RegExp)[], group = 0): string | undefined {
-  let result: string | undefined;
-  if (s != null) {
-    for (const pattern of patterns) {
-      if (pattern instanceof RegExp) {
-        const match = pattern.exec(s);
-        result = match?.[group];
-        break;
-      }
-      if (pattern === s) {
-        result = s;
-        break;
-      }
-    }
-  }
-  return result;
-}
 
 const configuration = await getConfiguration();
 
