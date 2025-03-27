@@ -50,6 +50,17 @@ DESTROY_TERRAFORM_WORKSPACES: false
 # This is useful if Terraform is failing to destroy the workspace.
 DESTROY_TERRAFORM_RESOURCES: false
 
+# Allows overriding Terraform variables when destroying workspaces.
+# This is useful for updating AWS credentials, for example.
+OVERRIDE_TERRAFORM_VARIABLES: 
+  - key: aws_access_key_id
+    value: YOUR_AWS_ACCESS_KEY_ID
+    category: "terraform"
+  - key: aws_secret_access_key
+    value: YOUR_AWS_SECRET_ACCESS_KEY
+    category: "terraform"
+    sensitive: true
+
 # Whether to disable caching of discovered resources, pull requests, workspaces, etc.
 CACHE_DISABLED: false
 

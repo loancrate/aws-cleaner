@@ -36,6 +36,15 @@ export interface TerraformCloudConfiguration {
   organization: string;
   destroyWorkspaces: boolean;
   destroyResources: boolean;
+  overrideVariables: TerraformVariable[];
+}
+
+export interface TerraformVariable {
+  key: string;
+  value: string;
+  category?: "terraform" | "env";
+  sensitive?: boolean;
+  hcl?: boolean;
 }
 
 let configuration: Configuration | undefined;
@@ -63,12 +72,14 @@ export async function getConfiguration(): Promise<Configuration> {
     const terraformCloudOrganization = getString(body, "TERRAFORM_CLOUD_ORGANIZATION");
     const destroyTerraformWorkspaces = getBoolean(body, "DESTROY_TERRAFORM_WORKSPACES", false);
     const destroyTerraformResources = getBoolean(body, "DESTROY_TERRAFORM_RESOURCES", false);
+    const overrideTerraformVariables = getTerraformVariables(body, "OVERRIDE_TERRAFORM_VARIABLES");
     if (terraformCloudToken && terraformCloudOrganization) {
       terraformCloud = {
         token: terraformCloudToken,
         organization: terraformCloudOrganization,
         destroyWorkspaces: destroyTerraformWorkspaces,
         destroyResources: destroyTerraformResources,
+        overrideVariables: overrideTerraformVariables,
       };
     }
 
@@ -176,4 +187,37 @@ function getDuration(obj: Record<string, unknown>, name: string, def: string): n
     assert(duration != null, "Invalid default duration");
   }
   return duration;
+}
+
+function getTerraformVariables(obj: Record<string, unknown>, name: string): TerraformVariable[] {
+  const value = obj[name];
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`Array value expected for ${name}`);
+  }
+  const result: TerraformVariable[] = [];
+  for (const item of value) {
+    const index = result.length;
+    if (!isObject(item)) {
+      throw new Error(`Object value expected for ${name} element ${index}`);
+    }
+    const key = getString(item, "key");
+    if (!key) {
+      throw new Error(`Missing key for ${name} element ${index}`);
+    }
+    const category = getString(item, "category", "terraform");
+    if (category !== "terraform" && category !== "env") {
+      throw new Error(`Invalid category value for ${name} ${key}`);
+    }
+    result.push({
+      key,
+      value: getString(item, "value", ""),
+      category: category,
+      sensitive: getBoolean(item, "sensitive", false),
+      hcl: getBoolean(item, "hcl", false),
+    });
+  }
+  return result;
 }

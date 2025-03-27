@@ -1,11 +1,9 @@
 import got, { HTTPError } from "got";
 import { setTimeout as sleep } from "timers/promises";
+import { TerraformCloudConfiguration } from "./config.js";
 import logger from "./logger.js";
 
-export interface TerraformConfig {
-  token: string;
-  organization: string;
-}
+type TerraformConfig = TerraformCloudConfiguration;
 
 function getClient(token: string) {
   return got.extend({
@@ -399,8 +397,23 @@ export async function createDestroyRun(
   config: TerraformConfig,
   workspace: TerraformWorkspace,
 ): Promise<TerraformRun | null> {
+  const client = getClient(config.token);
+
+  for (const attributes of config.overrideVariables) {
+    await client.post(`workspaces/${workspace.id}/vars`, {
+      headers: {
+        "Content-Type": "application/vnd.api+json",
+      },
+      json: {
+        data: {
+          type: "vars",
+          attributes,
+        },
+      },
+    });
+  }
+
   try {
-    const client = getClient(config.token);
     const result = await client
       .post(`runs`, {
         headers: {
