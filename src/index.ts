@@ -1,6 +1,6 @@
 import { asError } from "catch-unknown";
 import { setImmediate, setTimeout as sleep } from "timers/promises";
-import { ArnFields, makeArn, parseArn } from "./arn.js";
+import { ArnFields, makeTaskDefFamilyArn, parseArn } from "./arn.js";
 import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
 import { compare, compareNumericString } from "./compare.js";
@@ -112,30 +112,47 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
 
   const accountId = (await getCallerIdentity()).Account!;
 
-  let allTaskDefinitionFamilies = cache.getTaskDefinitionFamilies();
-  if (!allTaskDefinitionFamilies) {
-    allTaskDefinitionFamilies = await listTaskDefinitionFamilies();
-    cache.setTaskDefinitionFamilies(allTaskDefinitionFamilies);
+  let activeTaskDefinitionFamilies = cache.getActiveTaskDefinitionFamilies();
+  if (!activeTaskDefinitionFamilies) {
+    activeTaskDefinitionFamilies = await listTaskDefinitionFamilies();
+    cache.setActiveTaskDefinitionFamilies(activeTaskDefinitionFamilies);
+  }
+
+  let inactiveTaskDefinitionFamilies;
+  if (configuration.deleteInactiveTaskDefinitions) {
+    inactiveTaskDefinitionFamilies = cache.getInactiveTaskDefinitionFamilies();
+    if (!inactiveTaskDefinitionFamilies) {
+      inactiveTaskDefinitionFamilies = await listTaskDefinitionFamilies(undefined, "INACTIVE");
+      cache.setInactiveTaskDefinitionFamilies(inactiveTaskDefinitionFamilies);
+    }
   }
 
   let foundTaskDefinitionFamilies = 0;
-  for (const family of allTaskDefinitionFamilies) {
+
+  for (const family of activeTaskDefinitionFamilies) {
     const environment = getEnvironmentFromName(family);
     if (environment && envFilter(environment)) {
       resources.push({
-        arn: makeArn({
-          partition: "aws",
-          service: "ecs",
-          region: "",
-          accountId,
-          resourceType: "task-definition-family",
-          resourceId: family,
-        }),
+        arn: makeTaskDefFamilyArn(accountId, family),
         environment,
       });
       ++foundTaskDefinitionFamilies;
     }
   }
+
+  if (inactiveTaskDefinitionFamilies) {
+    for (const family of inactiveTaskDefinitionFamilies) {
+      const environment = getEnvironmentFromName(family);
+      if (environment == null || envFilter(environment)) {
+        resources.push({
+          arn: makeTaskDefFamilyArn(accountId, family),
+          environment: environment ?? "<none>",
+        });
+        ++foundTaskDefinitionFamilies;
+      }
+    }
+  }
+
   logger.info(`Found ${foundTaskDefinitionFamilies} task definition families matching filter`);
 
   return resources;

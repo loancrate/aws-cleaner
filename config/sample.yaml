@@ -11,6 +11,10 @@ MAXIMUM_CONCURRENCY: 20
 # Resource types to ignore. See src/ResourceType.ts for names.
 IGNORE_RESOURCE_TYPES: []
 
+# Whether to delete all unprotected inactive ECS task definitions,
+# including those without an environment tag.
+DELETE_INACTIVE_TASK_DEFINITIONS: false
+
 # Name(s) of tag(s) used to identify the logical environment of a resource.
 AWS_ENVIRONMENT_TAGS:
   - /^env(ironment)?$/i

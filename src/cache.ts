@@ -32,8 +32,11 @@ interface CacheData {
 
   roleTags?: Record<string, RoleTags>;
 
-  taskDefinitionFamilies?: string[];
-  taskDefinitionFamiliesDate?: string;
+  activeTaskDefinitionFamilies?: string[];
+  activeTaskDefinitionFamiliesDate?: string;
+
+  inactiveTaskDefinitionFamilies?: string[];
+  inactiveTaskDefinitionFamiliesDate?: string;
 }
 
 interface CacheFile extends CacheData {
@@ -80,24 +83,35 @@ export class Cache {
   }
 
   public async save(): Promise<void> {
-    if (this.dirty && !this.config.disabled) {
-      const file: CacheFile = {
-        version: currentVersion,
-        ...this.data,
-      };
-      const path = this.getPath();
-      try {
-        this.getWorkspaces();
-        this.getPullRequests();
-        this.getTaggedResources();
-        this.getRoles();
-        this.deleteExpiredRoleTags();
-        await writeFile(path, JSON.stringify(file, undefined, 2));
-        this.dirty = false;
-        logger.info(`Saved cache to ${path}`);
-      } catch (err) {
-        logger.warn(`Error saving cache to ${path}: ${asError(err).message}`);
-      }
+    if (this.config.disabled) {
+      return;
+    }
+
+    // Invalidate cache entries that have expired
+    this.getWorkspaces();
+    this.getPullRequests();
+    this.getTaggedResources();
+    this.getRoles();
+    this.deleteExpiredRoleTags();
+    this.getActiveTaskDefinitionFamilies();
+    this.getInactiveTaskDefinitionFamilies();
+
+    if (!this.dirty) {
+      return;
+    }
+
+    const file: CacheFile = {
+      version: currentVersion,
+      ...this.data,
+    };
+
+    const path = this.getPath();
+    try {
+      await writeFile(path, JSON.stringify(file, undefined, 2));
+      this.dirty = false;
+      logger.info(`Saved cache to ${path}`);
+    } catch (err) {
+      logger.warn(`Error saving cache to ${path}: ${asError(err).message}`);
     }
   }
 
@@ -240,31 +254,60 @@ export class Cache {
     }
   }
 
-  public getTaskDefinitionFamilies(): string[] | undefined {
-    const { taskDefinitionFamilies, taskDefinitionFamiliesDate } = this.data;
-    if (taskDefinitionFamilies && taskDefinitionFamiliesDate) {
-      if (isValid(taskDefinitionFamiliesDate, this.config.resourcesTtlMs)) {
-        logger.debug("Got task definition families from cache");
-        return taskDefinitionFamilies;
+  public getActiveTaskDefinitionFamilies(): string[] | undefined {
+    const { activeTaskDefinitionFamilies, activeTaskDefinitionFamiliesDate } = this.data;
+    if (activeTaskDefinitionFamilies && activeTaskDefinitionFamiliesDate) {
+      if (isValid(activeTaskDefinitionFamiliesDate, this.config.resourcesTtlMs)) {
+        logger.debug("Got active task definition families from cache");
+        return activeTaskDefinitionFamilies;
       } else {
-        logger.debug(`Cached task definition families expired: ${taskDefinitionFamiliesDate}`);
-        delete this.data.taskDefinitionFamilies;
-        delete this.data.taskDefinitionFamiliesDate;
+        logger.debug(`Cached active task definition families expired: ${activeTaskDefinitionFamiliesDate}`);
+        delete this.data.activeTaskDefinitionFamilies;
+        delete this.data.activeTaskDefinitionFamiliesDate;
         this.dirty = true;
       }
     }
   }
 
-  public setTaskDefinitionFamilies(families: string[]): void {
-    this.data.taskDefinitionFamilies = families;
-    this.data.taskDefinitionFamiliesDate = new Date().toISOString();
+  public setActiveTaskDefinitionFamilies(families: string[]): void {
+    this.data.activeTaskDefinitionFamilies = families;
+    this.data.activeTaskDefinitionFamiliesDate = new Date().toISOString();
     this.dirty = true;
   }
 
-  public deleteTaskDefinitionFamily(family: string): void {
-    const index = this.data.taskDefinitionFamilies?.findIndex((f) => f === family) ?? -1;
+  public deleteActiveTaskDefinitionFamily(family: string): void {
+    const index = this.data.activeTaskDefinitionFamilies?.findIndex((f) => f === family) ?? -1;
     if (index >= 0) {
-      this.data.taskDefinitionFamilies?.splice(index, 1);
+      this.data.activeTaskDefinitionFamilies?.splice(index, 1);
+      this.dirty = true;
+    }
+  }
+
+  public getInactiveTaskDefinitionFamilies(): string[] | undefined {
+    const { inactiveTaskDefinitionFamilies, inactiveTaskDefinitionFamiliesDate } = this.data;
+    if (inactiveTaskDefinitionFamilies && inactiveTaskDefinitionFamiliesDate) {
+      if (isValid(inactiveTaskDefinitionFamiliesDate, this.config.resourcesTtlMs)) {
+        logger.debug("Got inactive task definition families from cache");
+        return inactiveTaskDefinitionFamilies;
+      } else {
+        logger.debug(`Cached inactive task definition families expired: ${inactiveTaskDefinitionFamiliesDate}`);
+        delete this.data.inactiveTaskDefinitionFamilies;
+        delete this.data.inactiveTaskDefinitionFamiliesDate;
+        this.dirty = true;
+      }
+    }
+  }
+
+  public setInactiveTaskDefinitionFamilies(families: string[]): void {
+    this.data.inactiveTaskDefinitionFamilies = families;
+    this.data.inactiveTaskDefinitionFamiliesDate = new Date().toISOString();
+    this.dirty = true;
+  }
+
+  public deleteInactiveTaskDefinitionFamily(family: string): void {
+    const index = this.data.inactiveTaskDefinitionFamilies?.findIndex((f) => f === family) ?? -1;
+    if (index >= 0) {
+      this.data.inactiveTaskDefinitionFamilies?.splice(index, 1);
       this.dirty = true;
     }
   }

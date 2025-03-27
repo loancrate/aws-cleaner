@@ -12,6 +12,7 @@ export interface Configuration {
   continueAfterErrors: boolean;
   maximumConcurrency: number;
   ignoreResourceTypes: Set<string>;
+  deleteInactiveTaskDefinitions: boolean;
 
   awsEnvironmentTags: (string | RegExp)[];
   protectedEnvironments: (string | RegExp)[];
@@ -88,6 +89,7 @@ export async function getConfiguration(): Promise<Configuration> {
       continueAfterErrors: getBoolean(body, "CONTINUE_AFTER_ERRORS", false),
       maximumConcurrency: getInteger(body, "MAXIMUM_CONCURRENCY", 20),
       ignoreResourceTypes: new Set(getStrings(body, "IGNORE_RESOURCE_TYPES")),
+      deleteInactiveTaskDefinitions: getBoolean(body, "DELETE_INACTIVE_TASK_DEFINITIONS", false),
 
       awsEnvironmentTags: getStringsOrRegExps(body, "AWS_ENVIRONMENT_TAGS"),
       protectedEnvironments: getStringsOrRegExps(body, "PROTECTED_ENVIRONMENTS"),

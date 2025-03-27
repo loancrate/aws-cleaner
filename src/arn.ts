@@ -32,3 +32,14 @@ export function makeArn(fields: ArnFields, resourceTypeDelimiter = ":"): string 
   const prefix = `arn:${partition}:${service}:${region}:${accountId}:`;
   return resourceType ? `${prefix}${resourceType}${resourceTypeDelimiter}${resourceId}` : `${prefix}${resourceId}`;
 }
+
+export function makeTaskDefFamilyArn(accountId: string, family: string): string {
+  return makeArn({
+    partition: "aws",
+    service: "ecs",
+    region: "",
+    accountId,
+    resourceType: "task-definition-family",
+    resourceId: family,
+  });
+}

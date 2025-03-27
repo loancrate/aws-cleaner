@@ -1,6 +1,7 @@
 import {
   DeleteClusterCommand,
   DeleteServiceCommand,
+  DeleteTaskDefinitionsCommand,
   DeregisterTaskDefinitionCommand,
   DescribeTasksCommand,
   DesiredStatus,
@@ -30,11 +31,14 @@ function getClient(): ECSClient {
 
 // https://docs.aws.amazon.com/AmazonECS/latest/APIReference/request-throttling.html
 const clusterModifyRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 20, fillRate: 1 });
+const taskDefDeleteRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 5, fillRate: 1 });
 const taskDefModifyRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 20, fillRate: 1 });
 const taskDefReadRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 50, fillRate: 20 });
 const clusterResourceModifyRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 100, fillRate: 40 });
 const clusterResourceReadRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 100, fillRate: 20 });
 const clusterServiceResourceModifyRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 50, fillRate: 5 });
+
+const maxTaskDefsPerDelete = 10;
 
 async function throttle<T>(rateLimiter: RateLimiter, task: () => Promise<T>): Promise<T> {
   let backOffMs = 1000;
@@ -145,7 +149,10 @@ async function stopTask(cluster: string, task: string, reason?: string): Promise
   return response.task;
 }
 
-async function listTaskDefinitions(familyPrefix?: string, status = TaskDefinitionStatus.ACTIVE): Promise<string[]> {
+async function listTaskDefinitions(
+  familyPrefix?: string,
+  status: TaskDefinitionStatus = TaskDefinitionStatus.ACTIVE,
+): Promise<string[]> {
   const result: string[] = [];
   for (let nextToken: string | undefined; ; ) {
     const client = getClient();
@@ -159,15 +166,26 @@ async function listTaskDefinitions(familyPrefix?: string, status = TaskDefinitio
   return result;
 }
 
-export async function deleteTaskDefinition({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+async function deregisterTaskDefinition(taskDefinition: string): Promise<void> {
   const client = getClient();
-  const command = new DeregisterTaskDefinitionCommand({ taskDefinition: resourceId });
+  const command = new DeregisterTaskDefinitionCommand({ taskDefinition });
   await throttle(taskDefModifyRateLimiter, () => client.send(command));
+}
+
+async function deleteTaskDefinitions(taskDefinitions: string[]): Promise<void> {
+  const client = getClient();
+  const command = new DeleteTaskDefinitionsCommand({ taskDefinitions });
+  await throttle(taskDefDeleteRateLimiter, () => client.send(command));
+}
+
+export async function deleteTaskDefinition({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  await deregisterTaskDefinition(resourceId);
+  await deleteTaskDefinitions([resourceId]);
 }
 
 export async function listTaskDefinitionFamilies(
   familyPrefix?: string,
-  status = TaskDefinitionFamilyStatus.ACTIVE,
+  status: TaskDefinitionFamilyStatus = TaskDefinitionFamilyStatus.ACTIVE,
 ): Promise<string[]> {
   const result: string[] = [];
   for (let nextToken: string | undefined; ; ) {
@@ -185,16 +203,32 @@ export async function listTaskDefinitionFamilies(
 export async function deleteTaskDefinitionFamily({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const taskDefArns = await listTaskDefinitions(resourceId);
-  if (taskDefArns.length) {
-    logger.debug(`Deregistering ${taskDefArns.length} revisions of task definition ${resourceId}`);
-    for (const arn of taskDefArns) {
-      const revisionIndex = arn.lastIndexOf(":");
-      if (revisionIndex > 0) {
-        const revision = arn.substring(revisionIndex + 1);
-        logger.info(`Deregistering revision ${revision} of task definition ${resourceId}`);
-      }
-      await deleteTaskDefinition({ resourceId: arn });
+  const activeTaskDefs = await listTaskDefinitions(resourceId);
+  if (activeTaskDefs.length) {
+    logger.info(`Deregistering ${activeTaskDefs.length} revisions of task definition ${resourceId}`);
+    for (const arn of activeTaskDefs) {
+      logger.info(`Deregistering revision ${getRevision(arn)} of task definition ${resourceId}`);
+      await deregisterTaskDefinition(arn);
     }
   }
+
+  const inactiveTaskDefs = await listTaskDefinitions(resourceId, TaskDefinitionStatus.INACTIVE);
+  if (inactiveTaskDefs.length) {
+    logger.info(`Deleting ${inactiveTaskDefs.length} revisions of task definition ${resourceId}`);
+    for (let i = 0; i < inactiveTaskDefs.length; i += maxTaskDefsPerDelete) {
+      const page = inactiveTaskDefs.slice(i, i + maxTaskDefsPerDelete);
+      const first = getRevision(page[0]);
+      const last = getRevision(page[page.length - 1]);
+      logger.info(`Deleting revisions ${first} to ${last} of task definition ${resourceId}`);
+      await deleteTaskDefinitions(page);
+    }
+  }
+}
+
+function getRevision(taskDefArn: string): number {
+  const revisionIndex = taskDefArn.lastIndexOf(":");
+  if (revisionIndex < 0) {
+    return 0;
+  }
+  return parseInt(taskDefArn.substring(revisionIndex + 1));
 }
