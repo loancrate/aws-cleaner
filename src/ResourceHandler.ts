@@ -66,7 +66,7 @@ import {
   describeDiscoveryNamespace,
 } from "./resources/servicediscovery.js";
 import { deleteSnsTopic } from "./resources/sns.js";
-import { ResourceType } from "./ResourceType.js";
+import { ResourceType, ec2SecurityGroupRules, ecsTaskDefinitionFamily } from "./ResourceType.js";
 
 export interface ResourceHandler {
   kind: string;
@@ -113,7 +113,7 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     describer: describeSecurityGroup,
     destroyer: deleteSecurityGroup,
   },
-  "ec2.security-group-rules": {
+  [ec2SecurityGroupRules]: {
     kind: "EC2 Security Group Rules",
     describer: describeSecurityGroup,
     destroyer: deleteSecurityGroupRules,
@@ -153,7 +153,7 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     kind: "ECS Task Definition",
     destroyer: deleteTaskDefinition,
   },
-  "ecs.task-definition-family": {
+  [ecsTaskDefinitionFamily]: {
     kind: "ECS Task Definition Family",
     destroyer: deleteTaskDefinitionFamily,
   },

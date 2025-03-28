@@ -1,4 +1,4 @@
-import { ResourceType } from "./ResourceType.js";
+import { ResourceType, ec2SecurityGroupRules, ecsTaskDefinitionFamily } from "./ResourceType.js";
 
 export type ResourceTypeDependencies = Record<ResourceType, ResourceType[]>;
 
@@ -11,7 +11,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "ec2.natgateway": ["ec2.subnet"],
   "ec2.route-table": ["ec2.vpc"],
   "ec2.security-group": ["ec2.vpc"],
-  "ec2.security-group-rules": ["ec2.security-group"],
+  [ec2SecurityGroupRules]: ["ec2.security-group"],
   "ec2.subnet": ["ec2.vpc"],
   "ec2.vpc-flow-log": ["logs.log-group"],
   "ec2.vpc": [],
@@ -35,8 +35,8 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
     "ecs.cluster",
     "ecs.task-definition",
   ],
-  "ecs.task-definition": ["ecs.task-definition-family", "iam.role", "logs.log-group"],
-  "ecs.task-definition-family": [],
+  "ecs.task-definition": [ecsTaskDefinitionFamily, "iam.role", "logs.log-group"],
+  [ecsTaskDefinitionFamily]: [],
   "elasticache.cluster": [
     "ec2.internet-gateway",
     "ec2.security-group",

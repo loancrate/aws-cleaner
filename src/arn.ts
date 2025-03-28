@@ -1,3 +1,5 @@
+import { taskDefinitionFamily } from "./ResourceType.js";
+
 export interface ArnFields {
   partition: string;
   service: string;
@@ -33,13 +35,13 @@ export function makeArn(fields: ArnFields, resourceTypeDelimiter = ":"): string 
   return resourceType ? `${prefix}${resourceType}${resourceTypeDelimiter}${resourceId}` : `${prefix}${resourceId}`;
 }
 
-export function makeTaskDefFamilyArn(accountId: string, family: string): string {
-  return makeArn({
+export function makeTaskDefFamilyArnFields(accountId: string, family: string): ArnFields {
+  return {
     partition: "aws",
     service: "ecs",
     region: "",
     accountId,
-    resourceType: "task-definition-family",
+    resourceType: taskDefinitionFamily,
     resourceId: family,
-  });
+  };
 }

@@ -1,3 +1,11 @@
+// synthetic resource type used delete rules before groups
+export const securityGroupRules = "security-group-rules";
+export const ec2SecurityGroupRules = `ec2.${securityGroupRules}`;
+
+// synthetic resource type
+export const taskDefinitionFamily = "task-definition-family";
+export const ecsTaskDefinitionFamily = `ecs.${taskDefinitionFamily}`;
+
 const resourceTypes = [
   "cloudfront.distribution",
   "cloudwatch.alarm",
@@ -7,8 +15,7 @@ const resourceTypes = [
   "ec2.natgateway",
   "ec2.route-table",
   "ec2.security-group",
-  // synthetic resource type used delete rules before groups
-  "ec2.security-group-rules",
+  ec2SecurityGroupRules,
   "ec2.subnet",
   "ec2.vpc",
   "ec2.vpc-flow-log",
@@ -17,8 +24,7 @@ const resourceTypes = [
   "ecs.service",
   "ecs.task",
   "ecs.task-definition",
-  // synthetic resource type
-  "ecs.task-definition-family",
+  ecsTaskDefinitionFamily,
   "elasticache.cluster",
   "elasticache.replicationgroup",
   "elasticache.snapshot",

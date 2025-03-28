@@ -1,6 +1,6 @@
 import { asError } from "catch-unknown";
 import { setImmediate, setTimeout as sleep } from "timers/promises";
-import { ArnFields, makeTaskDefFamilyArn, parseArn } from "./arn.js";
+import { ArnFields, makeArn, makeTaskDefFamilyArnFields, parseArn } from "./arn.js";
 import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
 import { compare, compareNumericString } from "./compare.js";
@@ -14,7 +14,7 @@ import { listTaskDefinitionFamilies } from "./resources/ecs.js";
 import { listRoles, listRoleTags } from "./resources/iam.js";
 import { getCallerIdentity } from "./resources/sts.js";
 import { getResources } from "./resources/tagging.js";
-import { isResourceType, ResourceType } from "./ResourceType.js";
+import { ec2SecurityGroupRules, isResourceType, ResourceType } from "./ResourceType.js";
 import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
 import { SchedulerBuilder, Task } from "./scheduler.js";
 import {
@@ -45,11 +45,20 @@ type EnvironmentFilter = (env: string) => boolean;
 
 interface Resource {
   arn: string;
+  arnFields: ArnFields;
   environment: string;
 }
 
-async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cache): Promise<Resource[]> {
-  const resources: Resource[] = [];
+type ResourceEnvironmentMap = Map<string, Resource>;
+
+function addResourceToMap(map: ResourceEnvironmentMap, arn: string, arnFields: ArnFields, environment: string): void {
+  if (!map.has(arn)) {
+    map.set(arn, { arn, arnFields, environment });
+  }
+}
+
+async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cache): Promise<ResourceEnvironmentMap> {
+  const resources: ResourceEnvironmentMap = new Map();
 
   let taggedResources = cache.getTaggedResources();
   if (!taggedResources) {
@@ -61,7 +70,18 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
   for (const resource of taggedResources) {
     const environment = resource.Tags?.find((tag) => matchPatterns(tag.Key, configuration.awsEnvironmentTags))?.Value;
     if (environment && envFilter(environment)) {
-      resources.push({ arn: resource.ResourceARN, environment });
+      let arn = resource.ResourceARN;
+      let arnFields = parseArn(arn);
+
+      // special handling for ECS task definitions: use the family as the
+      // resource ID so we can more efficiently delete all the revisions
+      if (arnFields.service === "ecs" && arnFields.resourceType === "task-definition") {
+        const family = arnFields.resourceId.split(":")[0];
+        arnFields = makeTaskDefFamilyArnFields(arnFields.accountId, family);
+        arn = makeArn(arnFields);
+      }
+
+      addResourceToMap(resources, arn, arnFields, environment);
       ++foundResources;
     }
   }
@@ -87,7 +107,8 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
       environment = tags.find((tag) => matchPatterns(tag.Key, configuration.awsEnvironmentTags))?.Value;
     }
     if (environment && envFilter(environment)) {
-      resources.push({ arn: role.Arn, environment });
+      let arnFields = parseArn(role.Arn);
+      addResourceToMap(resources, role.Arn, arnFields, environment);
       ++foundRoles;
     }
   }
@@ -115,10 +136,9 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
   for (const family of activeTaskDefinitionFamilies) {
     const environment = getEnvironmentFromName(family);
     if (environment && envFilter(environment)) {
-      resources.push({
-        arn: makeTaskDefFamilyArn(accountId, family),
-        environment,
-      });
+      const arnFields = makeTaskDefFamilyArnFields(accountId, family);
+      const arn = makeArn(arnFields);
+      addResourceToMap(resources, arn, arnFields, environment);
       ++foundTaskDefinitionFamilies;
     }
   }
@@ -127,10 +147,9 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
     for (const family of inactiveTaskDefinitionFamilies) {
       const environment = getEnvironmentFromName(family);
       if (environment == null || envFilter(environment)) {
-        resources.push({
-          arn: makeTaskDefFamilyArn(accountId, family),
-          environment: environment ?? "<none>",
-        });
+        const arnFields = makeTaskDefFamilyArnFields(accountId, family);
+        const arn = makeArn(arnFields);
+        addResourceToMap(resources, arn, arnFields, environment ?? "<none>");
         ++foundTaskDefinitionFamilies;
       }
     }
@@ -141,11 +160,10 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
   return resources;
 }
 
-function summarizeResources(resources: Resource[]): void {
+function summarizeResources(resources: ResourceEnvironmentMap): void {
   const typeCounts = new Map<string, number>();
   const environmentCounts = new Map<string, number>();
-  for (const resource of resources) {
-    const { arn, environment } = resource;
+  for (const [arn, { environment }] of resources) {
     const { service, resourceType } = parseArn(arn);
     const serviceType = resourceType ? `${service}.${resourceType}` : service;
     typeCounts.set(serviceType, (typeCounts.get(serviceType) ?? 0) + 1);
@@ -163,14 +181,10 @@ function summarizeResources(resources: Resource[]): void {
   }
 }
 
-interface ParsedResource extends Resource {
-  arnFields: ArnFields;
-}
-
 const poller = getPoller();
 
 async function addTask(
-  { arn, arnFields, environment }: ParsedResource,
+  { arn, arnFields, environment }: Resource,
   resourceType: ResourceType,
   schedulerBuilder: SchedulerBuilder,
   cache: Cache,
@@ -309,9 +323,7 @@ try {
 
   const schedulerBuilder = new SchedulerBuilder(resourceTypeDependencies);
   const unrecognizedResourceTypeArns = new Map<string, string[]>();
-  for (const resource of resources) {
-    const { arn, environment } = resource;
-    const arnFields = parseArn(arn);
+  for (const [arn, { arnFields, environment }] of resources) {
     const { service, resourceType: subtype } = arnFields;
     if (configuration.ignoreResourceTypes.has(service)) continue;
     const resourceType = subtype ? `${service}.${subtype}` : service;
@@ -329,7 +341,7 @@ try {
 
     // untangle dependencies among security groups by deleting all their rules first
     if (resourceType === "ec2.security-group") {
-      await addTask({ arn, arnFields, environment }, "ec2.security-group-rules", schedulerBuilder, cache);
+      await addTask({ arn, arnFields, environment }, ec2SecurityGroupRules, schedulerBuilder, cache);
     }
   }
 
