@@ -1,3 +1,4 @@
+import { asError } from "catch-unknown";
 import got, { HTTPError } from "got";
 import { setTimeout as sleep } from "timers/promises";
 import { TerraformCloudConfiguration } from "./config.js";
@@ -231,6 +232,50 @@ async function getWorkspace({ token }: TerraformConfig, id: string): Promise<Wor
   }
 }
 
+interface WorkspaceVarsResponse {
+  data: {
+    id: string;
+    type: "vars";
+    attributes: {
+      key: string;
+      value: unknown;
+      sensitive: boolean;
+      category: string;
+      hcl: boolean;
+      "created-at": string;
+      description: string | null;
+      "version-id": string;
+    };
+    relationships: {
+      workspace: {
+        data: {
+          id: string;
+          type: "workspaces";
+        };
+        links: {
+          related: string;
+        };
+      };
+    };
+    links: {
+      self: string;
+    };
+  }[];
+}
+
+async function getWorkspaceVariables({ token }: TerraformConfig, id: string): Promise<WorkspaceVarsResponse | null> {
+  try {
+    const client = getClient(token);
+    const data = await client.get(`workspaces/${id}/vars`).json<WorkspaceVarsResponse>();
+    return data;
+  } catch (err) {
+    if (err instanceof HTTPError && err.response.statusCode === 404) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 export async function isWorkspaceRunning(config: TerraformConfig, workspace: TerraformWorkspace): Promise<boolean> {
   const workspaceInfo = await getWorkspace(config, workspace.id);
   if (workspaceInfo?.data.attributes.locked) {
@@ -399,18 +444,35 @@ export async function createDestroyRun(
 ): Promise<TerraformRun | null> {
   const client = getClient(config.token);
 
-  for (const attributes of config.overrideVariables) {
-    await client.post(`workspaces/${workspace.id}/vars`, {
-      headers: {
-        "Content-Type": "application/vnd.api+json",
-      },
-      json: {
-        data: {
-          type: "vars",
-          attributes,
-        },
-      },
-    });
+  if (config.overrideVariables.length) {
+    const vars = await getWorkspaceVariables(config, workspace.id);
+    if (!vars) {
+      return null;
+    }
+    const existingVars = new Set(vars.data.map((v) => v.attributes.key));
+    for (const attributes of config.overrideVariables) {
+      if (existingVars.has(attributes.key)) {
+        logger.info(`Variable ${attributes.key} already exists in ${workspace.name}`);
+        continue;
+      }
+      try {
+        logger.info(`Adding variable ${attributes.key} to ${workspace.name}`);
+        await client.post(`workspaces/${workspace.id}/vars`, {
+          headers: {
+            "Content-Type": "application/vnd.api+json",
+          },
+          json: {
+            data: {
+              type: "vars",
+              attributes,
+            },
+          },
+        });
+      } catch (err) {
+        const { message } = asError(err);
+        logger.warn(`Failed to add variable ${attributes.key} to workspace ${workspace.name}: ${message}`);
+      }
+    }
   }
 
   try {
