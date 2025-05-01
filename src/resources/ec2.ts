@@ -377,9 +377,13 @@ export async function deleteSecurityGroup({ resourceId }: Pick<ResourceDestroyer
     const command = new DeleteSecurityGroupCommand({ GroupId: resourceId });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "DependencyViolation") {
-      const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("group-id", resourceId));
-      throw new Error(`Security group ${resourceId} has dependent network interfaces: ${summary}`);
+    switch (getErrorCode(err)) {
+      case "InvalidGroup.NotFound":
+        return;
+      case "DependencyViolation": {
+        const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("group-id", resourceId));
+        throw new Error(`Security group ${resourceId} has dependent network interfaces: ${summary}`);
+      }
     }
     throw err;
   }
@@ -393,10 +397,17 @@ export async function describeSecurityGroup({
 }
 
 async function describeSecurityGroups(groupIds: string[]): Promise<SecurityGroup[]> {
-  const client = getClient();
-  const command = new DescribeSecurityGroupsCommand({ GroupIds: groupIds });
-  const response = await client.send(command);
-  return response.SecurityGroups || [];
+  try {
+    const client = getClient();
+    const command = new DescribeSecurityGroupsCommand({ GroupIds: groupIds });
+    const response = await client.send(command);
+    return response.SecurityGroups || [];
+  } catch (err) {
+    if (getErrorCode(err) === "InvalidGroup.NotFound") {
+      return [];
+    }
+    throw err;
+  }
 }
 
 export async function getSecurityGroupDependencies({
