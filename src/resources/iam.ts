@@ -144,14 +144,28 @@ export async function deleteRole({ resourceId }: Pick<ResourceDestroyerParams, "
 
   const client = getClient();
   const command = new DeleteRoleCommand({ RoleName: resourceId });
-  await throttle(() => client.send(command));
+  try {
+    await throttle(() => client.send(command));
+  } catch (err) {
+    if (getErrorCode(err) === "NoSuchEntity") {
+      return;
+    }
+    throw err;
+  }
 }
 
 async function listAttachedRolePolicies(RoleName: string): Promise<AttachedPolicy[]> {
   const client = getClient();
   const command = new ListAttachedRolePoliciesCommand({ RoleName });
-  const response = await throttle(() => client.send(command));
-  return response.AttachedPolicies || [];
+  try {
+    const response = await throttle(() => client.send(command));
+    return response.AttachedPolicies || [];
+  } catch (err) {
+    if (getErrorCode(err) === "NoSuchEntity") {
+      return [];
+    }
+    throw err;
+  }
 }
 
 async function detachRolePolicy(RoleName: string, PolicyArn: string): Promise<void> {
@@ -163,8 +177,15 @@ async function detachRolePolicy(RoleName: string, PolicyArn: string): Promise<vo
 async function listRolePolicies(RoleName: string): Promise<string[]> {
   const client = getClient();
   const command = new ListRolePoliciesCommand({ RoleName });
-  const response = await throttle(() => client.send(command));
-  return response.PolicyNames || [];
+  try {
+    const response = await throttle(() => client.send(command));
+    return response.PolicyNames || [];
+  } catch (err) {
+    if (getErrorCode(err) === "NoSuchEntity") {
+      return [];
+    }
+    throw err;
+  }
 }
 
 async function deleteRolePolicy(RoleName: string, PolicyName: string): Promise<void> {
