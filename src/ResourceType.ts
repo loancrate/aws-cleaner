@@ -18,6 +18,7 @@ const resourceTypes = [
   ec2SecurityGroupRules,
   "ec2.subnet",
   "ec2.vpc",
+  "ec2.vpc-endpoint",
   "ec2.vpc-flow-log",
   "ecr.repository",
   "ecs.cluster",

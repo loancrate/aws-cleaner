@@ -14,6 +14,7 @@ import {
   deleteSecurityGroupRules,
   deleteSubnet,
   deleteVpc,
+  deleteVpcEndpoint,
   describeElasticIp,
   describeFlowLogs,
   describeInstance,
@@ -127,6 +128,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     kind: "VPC",
     describer: describeVpc,
     destroyer: deleteVpc,
+  },
+  "ec2.vpc-endpoint": {
+    kind: "VPC Endpoint",
+    destroyer: deleteVpcEndpoint,
   },
   "ec2.vpc-flow-log": {
     kind: "VPC Flow Log",

@@ -51,6 +51,7 @@ The following types are currently supported:
   - Security Group
   - Subnet
   - VPC
+  - VPC Endpoint
   - VPC Flow Log
 - Elastic Container Registry (ECR)
   - Repository

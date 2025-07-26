@@ -13,6 +13,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "ec2.security-group": ["ec2.vpc"],
   [ec2SecurityGroupRules]: ["ec2.security-group"],
   "ec2.subnet": ["ec2.vpc"],
+  "ec2.vpc-endpoint": ["ec2.vpc"],
   "ec2.vpc-flow-log": ["logs.log-group"],
   "ec2.vpc": [],
   "ecr.repository": [],

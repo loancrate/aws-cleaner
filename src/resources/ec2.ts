@@ -7,6 +7,7 @@ import {
   DeleteSecurityGroupCommand,
   DeleteSubnetCommand,
   DeleteVpcCommand,
+  DeleteVpcEndpointsCommand,
   DescribeAddressesCommand,
   DescribeFlowLogsCommand,
   DescribeInstanceStatusCommand,
@@ -582,4 +583,14 @@ async function describeVpcSecurityGroups(vpcId: string): Promise<SecurityGroup[]
   const command = new DescribeSecurityGroupsCommand({ Filters: [{ Name: "vpc-id", Values: [vpcId] }] });
   const response = await client.send(command);
   return response.SecurityGroups || [];
+}
+
+export async function deleteVpcEndpoint({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  const client = getClient();
+  const command = new DeleteVpcEndpointsCommand({ VpcEndpointIds: [resourceId] });
+  const response = await client.send(command);
+  const errorCode = response.Unsuccessful?.[0].Error?.Code;
+  if (errorCode != null && errorCode !== "InvalidVpcEndpoint.NotFound") {
+    throw new Error(`Failed to delete VPC endpoint ${resourceId}: ${errorCode}`);
+  }
 }
