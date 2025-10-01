@@ -559,7 +559,6 @@ export async function deleteVpc({ resourceId }: Pick<ResourceDestroyerParams, "r
   try {
     await client.send(command);
   } catch (err) {
-    console.log(err);
     if (getErrorCode(err) !== "InvalidVpcID.NotFound") throw err;
   }
 }
@@ -567,13 +566,17 @@ export async function deleteVpc({ resourceId }: Pick<ResourceDestroyerParams, "r
 export async function describeVpc({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
   const client = getClient();
   const command = new DescribeVpcsCommand({ VpcIds: [resourceId] });
-  const response = await client.send(command);
-  const vpc = response.Vpcs?.[0];
-  if (vpc?.Tags) {
-    const name = vpc.Tags.find((tag) => tag.Key === "Name")?.Value;
-    if (name) {
-      return `${name} (${resourceId})`;
+  try {
+    const response = await client.send(command);
+    const vpc = response.Vpcs?.[0];
+    if (vpc?.Tags) {
+      const name = vpc.Tags.find((tag) => tag.Key === "Name")?.Value;
+      if (name) {
+        return `${name} (${resourceId})`;
+      }
     }
+  } catch (err) {
+    if (getErrorCode(err) !== "InvalidVpcID.NotFound") throw err;
   }
   return resourceId;
 }
