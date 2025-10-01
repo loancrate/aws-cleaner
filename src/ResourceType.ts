@@ -27,6 +27,7 @@ const resourceTypes = [
   "ecs.task-definition",
   ecsTaskDefinitionFamily,
   "elasticache.cluster",
+  "elasticache.parametergroup",
   "elasticache.replicationgroup",
   "elasticache.snapshot",
   "elasticache.subnetgroup",

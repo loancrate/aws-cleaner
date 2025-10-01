@@ -63,6 +63,7 @@ The following types are currently supported:
   - Task Definition Family
 - ElastiCache
   - Cluster
+  - Parameter Group
   - Replication Group
   - Snapshot
   - Subnet Group

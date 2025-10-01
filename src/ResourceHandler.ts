@@ -36,6 +36,7 @@ import {
   deleteCacheCluster,
   deleteCacheSnapshot,
   deleteCacheSubnetGroup,
+  deleteParameterGroup,
   deleteReplicationGroup,
 } from "./resources/elasticache.js";
 import {
@@ -165,6 +166,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "elasticache.cluster": {
     kind: "ElastiCache Cluster",
     destroyer: deleteCacheCluster,
+  },
+  "elasticache.parametergroup": {
+    kind: "ElastiCache Parameter Group",
+    destroyer: deleteParameterGroup,
   },
   "elasticache.replicationgroup": {
     kind: "ElastiCache Replication Group",

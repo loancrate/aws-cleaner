@@ -1,10 +1,13 @@
 import {
   CacheCluster,
+  CacheParameterGroup,
   DeleteCacheClusterCommand,
+  DeleteCacheParameterGroupCommand,
   DeleteCacheSubnetGroupCommand,
   DeleteReplicationGroupCommand,
   DeleteSnapshotCommand,
   DescribeCacheClustersCommand,
+  DescribeCacheParameterGroupsCommand,
   DescribeReplicationGroupsCommand,
   ElastiCacheClient,
   ReplicationGroup,
@@ -55,6 +58,27 @@ export async function deleteCacheCluster({
     );
   } catch (err) {
     if (getErrorCode(err) !== "CacheClusterNotFound") throw err;
+  }
+}
+
+export async function describeParameterGroup(id: string): Promise<CacheParameterGroup | undefined> {
+  const client = getClient();
+  const command = new DescribeCacheParameterGroupsCommand({
+    CacheParameterGroupName: id,
+  });
+  const output = await client.send(command);
+  return output.CacheParameterGroups?.[0];
+}
+
+export async function deleteParameterGroup({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  try {
+    const client = getClient();
+    const command = new DeleteCacheParameterGroupCommand({
+      CacheParameterGroupName: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "CacheParameterGroupNotFoundFault") throw err;
   }
 }
 

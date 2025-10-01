@@ -41,13 +41,16 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "elasticache.cluster": [
     "ec2.internet-gateway",
     "ec2.security-group",
+    "elasticache.parametergroup",
     "elasticache.replicationgroup",
     "elasticache.snapshot",
     "elasticache.subnetgroup",
   ],
+  "elasticache.parametergroup": [],
   "elasticache.replicationgroup": [
     "ec2.internet-gateway",
     "ec2.security-group",
+    "elasticache.parametergroup",
     "elasticache.snapshot",
     "elasticache.subnetgroup",
   ],
