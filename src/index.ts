@@ -289,7 +289,7 @@ try {
               const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
               if (destroyRun) {
                 const status = await waitForRun(configuration.terraformCloud, destroyRun);
-                if (status !== "applied") {
+                if (status !== "applied" && status !== "planned_and_finished") {
                   logger.error(`${environment}: Destroy run failed with status ${status}`);
                   continue;
                 }
