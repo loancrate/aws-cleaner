@@ -22,6 +22,7 @@ const resourceTypes = [
   "ec2.vpc-flow-log",
   "ecr.repository",
   "ecs.cluster",
+  "ecs.container-instance",
   "ecs.service",
   "ecs.task",
   "ecs.task-definition",

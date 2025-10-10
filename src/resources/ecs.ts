@@ -2,6 +2,7 @@ import {
   DeleteClusterCommand,
   DeleteServiceCommand,
   DeleteTaskDefinitionsCommand,
+  DeregisterContainerInstanceCommand,
   DeregisterTaskDefinitionCommand,
   DescribeTasksCommand,
   DesiredStatus,
@@ -79,6 +80,20 @@ export async function deleteCluster({
   const client = getClient();
   const command = new DeleteClusterCommand({ cluster });
   await throttle(clusterModifyRateLimiter, () => client.send(command));
+}
+
+export async function deleteContainerInstance({
+  resourceId,
+}: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  const [cluster, instanceId] = resourceId.split("/", 2);
+
+  const client = getClient();
+  const command = new DeregisterContainerInstanceCommand({
+    cluster,
+    containerInstance: instanceId,
+    force: true,
+  });
+  await throttle(clusterResourceModifyRateLimiter, () => client.send(command));
 }
 
 export async function deleteService({

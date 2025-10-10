@@ -57,6 +57,7 @@ The following types are currently supported:
   - Repository
 - Elastic Container Service (ECS)
   - Cluster
+  - Container Instance
   - Service
   - Task
   - Task Definition

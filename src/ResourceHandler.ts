@@ -27,6 +27,7 @@ import {
 import { deleteRepository } from "./resources/ecr.js";
 import {
   deleteCluster,
+  deleteContainerInstance,
   deleteService,
   deleteTask,
   deleteTaskDefinition,
@@ -146,6 +147,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "ecs.cluster": {
     kind: "ECS Cluster",
     destroyer: deleteCluster,
+  },
+  "ecs.container-instance": {
+    kind: "ECS Container Instance",
+    destroyer: deleteContainerInstance,
   },
   "ecs.service": {
     kind: "ECS Service",
