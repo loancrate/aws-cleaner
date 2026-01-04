@@ -5,10 +5,13 @@ export type ResourceTypeDependencies = Record<ResourceType, ResourceType[]>;
 export const resourceTypeDependencies: ResourceTypeDependencies = {
   "cloudfront.distribution": [],
   "cloudwatch.alarm": [],
+  "dynamodb.table": [],
   "ec2.elastic-ip": ["ec2.vpc"],
-  "ec2.instance": ["ec2.elastic-ip", "ec2.security-group", "ec2.subnet"],
+  "ec2.instance": ["ec2.elastic-ip", "ec2.launch-template", "ec2.security-group", "ec2.subnet"],
   "ec2.internet-gateway": ["ec2.elastic-ip"],
+  "ec2.launch-template": [],
   "ec2.natgateway": ["ec2.subnet"],
+  "ec2.network-interface": [],
   "ec2.route-table": ["ec2.vpc"],
   "ec2.security-group": ["ec2.vpc"],
   [ec2SecurityGroupRules]: ["ec2.security-group"],
@@ -17,7 +20,8 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "ec2.vpc-flow-log": ["logs.log-group"],
   "ec2.vpc": [],
   "ecr.repository": [],
-  "ecs.cluster": [],
+  "ecs.capacity-provider": [],
+  "ecs.cluster": ["ecs.capacity-provider"],
   "ecs.container-instance": [],
   "ecs.service": [
     "ec2.elastic-ip",
@@ -97,4 +101,5 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "servicediscovery.namespace": [],
   "servicediscovery.service": ["servicediscovery.namespace"],
   sns: [],
+  "ssm.parameter": [],
 };

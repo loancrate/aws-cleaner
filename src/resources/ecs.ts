@@ -1,4 +1,5 @@
 import {
+  DeleteCapacityProviderCommand,
   DeleteClusterCommand,
   DeleteServiceCommand,
   DeleteTaskDefinitionsCommand,
@@ -54,6 +55,21 @@ async function throttle<T>(rateLimiter: RateLimiter, task: () => Promise<T>): Pr
       await setTimeout(backOffMs);
       backOffMs *= 2;
     }
+  }
+}
+
+export async function deleteCapacityProvider({
+  resourceId,
+}: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  const client = getClient();
+  const command = new DeleteCapacityProviderCommand({ capacityProvider: resourceId });
+  try {
+    await throttle(clusterModifyRateLimiter, () => client.send(command));
+  } catch (err) {
+    if (getErrorCode(err) === "ResourceNotFoundException") {
+      return;
+    }
+    throw err;
   }
 }
 

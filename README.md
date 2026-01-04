@@ -42,11 +42,15 @@ The following types are currently supported:
 - CloudWatch
   - Alarm
   - Log Group
+- DynamoDB
+  - Table
 - Elastic Compute Cloud (EC2)
   - Elastic IP
   - Instance
   - Internet Gateway
+  - Launch Template
   - NAT Gateway
+  - Network Interface
   - Route Table
   - Security Group
   - Subnet
@@ -56,6 +60,7 @@ The following types are currently supported:
 - Elastic Container Registry (ECR)
   - Repository
 - Elastic Container Service (ECS)
+  - Capacity Provider
   - Cluster
   - Container Instance
   - Service
@@ -104,6 +109,8 @@ The following types are currently supported:
   - Service
 - Simple Notification Service (SNS)
   - Topic
+- Systems Manager (SSM)
+  - Parameter
 
 ## Installation
 

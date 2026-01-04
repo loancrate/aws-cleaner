@@ -9,10 +9,13 @@ export const ecsTaskDefinitionFamily = `ecs.${taskDefinitionFamily}`;
 const resourceTypes = [
   "cloudfront.distribution",
   "cloudwatch.alarm",
+  "dynamodb.table",
   "ec2.elastic-ip",
   "ec2.instance",
   "ec2.internet-gateway",
+  "ec2.launch-template",
   "ec2.natgateway",
+  "ec2.network-interface",
   "ec2.route-table",
   "ec2.security-group",
   ec2SecurityGroupRules,
@@ -21,6 +24,7 @@ const resourceTypes = [
   "ec2.vpc-endpoint",
   "ec2.vpc-flow-log",
   "ecr.repository",
+  "ecs.capacity-provider",
   "ecs.cluster",
   "ecs.container-instance",
   "ecs.service",
@@ -56,6 +60,7 @@ const resourceTypes = [
   "servicediscovery.namespace",
   "servicediscovery.service",
   "sns",
+  "ssm.parameter",
 ] as const;
 
 const resourceTypeSet = new Set<string>(resourceTypes);

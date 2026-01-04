@@ -56,7 +56,7 @@ DESTROY_TERRAFORM_RESOURCES: false
 
 # Allows overriding Terraform variables when destroying workspaces.
 # This is useful for updating AWS credentials, for example.
-OVERRIDE_TERRAFORM_VARIABLES: 
+OVERRIDE_TERRAFORM_VARIABLES:
   - key: aws_access_key_id
     value: YOUR_AWS_ACCESS_KEY_ID
     category: "terraform"

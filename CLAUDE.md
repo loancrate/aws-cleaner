@@ -20,6 +20,7 @@ npm run lint         # Run ESLint with TypeScript type checking
 ## Code Style
 
 - Avoid using deprecated APIs or function calls in new code
+- Do not include "Generated with" or "Co-Authored-By" lines in commit messages
 
 ## Architecture
 
@@ -37,6 +38,7 @@ npm run lint         # Run ESLint with TypeScript type checking
 Resource types follow `service.resourceType` naming (e.g., `ec2.instance`, `iam.role`, `s3`).
 
 **Key files:**
+
 - `src/ResourceType.ts` - Type definitions and validation
 - `src/ResourceHandler.ts` - Handler registry mapping types to delete/describe functions
 - `src/ResourceTypeDependencies.ts` - Static dependency graph (what must delete before what)
@@ -49,14 +51,30 @@ Resource types follow `service.resourceType` naming (e.g., `ec2.instance`, `iam.
 3. Register handler in `resourceHandlers` map in `src/ResourceHandler.ts`
 4. Declare dependencies in `src/ResourceTypeDependencies.ts`
 5. Install AWS SDK client if needed
+6. Update README.md with the new resource type
+
+### Dependency Graph Semantics
+
+In `ResourceTypeDependencies.ts`, the pattern `A: [B, C]` means:
+
+- "A depends on B and C"
+- "A must be deleted BEFORE B and C"
+- B and C are deleted AFTER A
+
+Example: `"ec2.instance": ["ec2.security-group", "ec2.subnet"]` means instances must be deleted before security groups and subnets can be deleted.
+
+When adding a new resource type:
+
+- If other resources USE your new type, add your type to THEIR dependency arrays
+- Your new type's own array lists what it depends on (usually empty for foundational/root resources that are deleted last)
 
 ### Handler Pattern
 
 ```typescript
 interface ResourceHandler {
-  kind: string;                              // Human-readable name
-  describer?: ResourceDescriber;             // Fetch description for logging
-  destroyer?: ResourceDestroyer;             // Execute deletion
+  kind: string; // Human-readable name
+  describer?: ResourceDescriber; // Fetch description for logging
+  destroyer?: ResourceDestroyer; // Execute deletion
   dependencyEnumerator?: DependencyEnumerator; // Dynamic dependency discovery
 }
 ```
@@ -74,6 +92,7 @@ Tasks grouped by `(environment, resourceType)`, ordered by dependency graph, exe
 ## Configuration
 
 Copy `config/sample.yaml` to `config/default.yaml`. Key settings:
+
 - `dryRun: true` (default) - Log what would be deleted without deleting
 - `awsEnvironmentTags` - Tag keys that identify environments
 - `protectedEnvironments` / `targetEnvironments` - Environment filtering

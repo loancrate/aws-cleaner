@@ -3,12 +3,15 @@ import { ResourceDescriber } from "./ResourceDescriber.js";
 import { ResourceDestroyer } from "./ResourceDestroyer.js";
 import { deleteCloudFrontDistribution } from "./resources/cloudfront.js";
 import { deleteCloudWatchAlarm } from "./resources/cloudwatch.js";
+import { deleteTable } from "./resources/dynamodb.js";
 import {
   deleteElasticIp,
   deleteFlowLogs,
   deleteInstance,
   deleteInternetGateway,
+  deleteLaunchTemplate,
   deleteNatGateway,
+  deleteNetworkInterface,
   deleteRouteTable,
   deleteSecurityGroup,
   deleteSecurityGroupRules,
@@ -18,6 +21,7 @@ import {
   describeElasticIp,
   describeFlowLogs,
   describeInstance,
+  describeLaunchTemplate,
   describeNatGateway,
   describeRouteTable,
   describeSecurityGroup,
@@ -26,6 +30,7 @@ import {
 } from "./resources/ec2.js";
 import { deleteRepository } from "./resources/ecr.js";
 import {
+  deleteCapacityProvider,
   deleteCluster,
   deleteContainerInstance,
   deleteService,
@@ -69,6 +74,7 @@ import {
   describeDiscoveryNamespace,
 } from "./resources/servicediscovery.js";
 import { deleteSnsTopic } from "./resources/sns.js";
+import { deleteParameter } from "./resources/ssm.js";
 import { ResourceType, ec2SecurityGroupRules, ecsTaskDefinitionFamily } from "./ResourceType.js";
 
 export interface ResourceHandler {
@@ -87,6 +93,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     kind: "CloudWatch Alarm",
     destroyer: deleteCloudWatchAlarm,
   },
+  "dynamodb.table": {
+    kind: "DynamoDB Table",
+    destroyer: deleteTable,
+  },
   "ec2.elastic-ip": {
     kind: "EC2 Elastic IP",
     describer: describeElasticIp,
@@ -101,10 +111,19 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     kind: "EC2 Internet Gateway",
     destroyer: deleteInternetGateway,
   },
+  "ec2.launch-template": {
+    kind: "EC2 Launch Template",
+    describer: describeLaunchTemplate,
+    destroyer: deleteLaunchTemplate,
+  },
   "ec2.natgateway": {
     kind: "EC2 NAT Gateway",
     describer: describeNatGateway,
     destroyer: deleteNatGateway,
+  },
+  "ec2.network-interface": {
+    kind: "EC2 Network Interface",
+    destroyer: deleteNetworkInterface,
   },
   "ec2.route-table": {
     kind: "EC2 Route Table",
@@ -143,6 +162,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "ecr.repository": {
     kind: "ECR Repository",
     destroyer: deleteRepository,
+  },
+  "ecs.capacity-provider": {
+    kind: "ECS Capacity Provider",
+    destroyer: deleteCapacityProvider,
   },
   "ecs.cluster": {
     kind: "ECS Cluster",
@@ -285,6 +308,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   sns: {
     kind: "SNS Topic",
     destroyer: deleteSnsTopic,
+  },
+  "ssm.parameter": {
+    kind: "SSM Parameter",
+    destroyer: deleteParameter,
   },
 };
 

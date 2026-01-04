@@ -2,6 +2,7 @@ import {
   AttachmentStatus,
   DeleteFlowLogsCommand,
   DeleteInternetGatewayCommand,
+  DeleteLaunchTemplateCommand,
   DeleteNatGatewayCommand,
   DeleteRouteTableCommand,
   DeleteSecurityGroupCommand,
@@ -13,6 +14,7 @@ import {
   DescribeInstanceStatusCommand,
   DescribeInstancesCommand,
   DescribeInternetGatewaysCommand,
+  DescribeLaunchTemplatesCommand,
   DescribeNatGatewaysCommand,
   DescribeNetworkInterfacesCommand,
   DescribeRouteTablesCommand,
@@ -596,4 +598,47 @@ export async function deleteVpcEndpoint({ resourceId }: Pick<ResourceDestroyerPa
   if (errorCode != null && errorCode !== "InvalidVpcEndpoint.NotFound") {
     throw new Error(`Failed to delete VPC endpoint ${resourceId}: ${errorCode}`);
   }
+}
+
+export async function deleteLaunchTemplate({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  const client = getClient();
+  const command = new DeleteLaunchTemplateCommand({ LaunchTemplateId: resourceId });
+  try {
+    await client.send(command);
+  } catch (err) {
+    const code = getErrorCode(err);
+    if (code === "InvalidLaunchTemplateId.NotFound" || code === "InvalidLaunchTemplateName.NotFoundException") {
+      return;
+    }
+    throw err;
+  }
+}
+
+export async function describeLaunchTemplate({
+  resourceId,
+}: Pick<ResourceDescriberParams, "resourceId">): Promise<string | undefined> {
+  const client = getClient();
+  const command = new DescribeLaunchTemplatesCommand({ LaunchTemplateIds: [resourceId] });
+  try {
+    const response = await client.send(command);
+    const template = response.LaunchTemplates?.[0];
+    if (template?.LaunchTemplateName) {
+      return `${template.LaunchTemplateName} (${resourceId})`;
+    }
+  } catch (err) {
+    if (getErrorCode(err) === "InvalidLaunchTemplateId.NotFound") {
+      return undefined;
+    }
+    throw err;
+  }
+  return resourceId;
+}
+
+export async function deleteNetworkInterface({
+  resourceId,
+}: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
+  // Network interfaces are typically cleaned up when their parent resources are deleted
+  // (instances, NAT gateways, load balancers, etc.). We log and return without attempting deletion.
+  logger.debug(`Skipping network interface ${resourceId} - will be cleaned up with parent resource`);
+  return Promise.resolve();
 }
