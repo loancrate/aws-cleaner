@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "timers/promises";
 import logger from "./logger.js";
 
 export type AsyncPredicate = (durationMs: number) => Promise<boolean>;
@@ -22,35 +23,29 @@ export function getPoller(options?: PollerFactoryOptions): Poller {
   const { intervalMs, timeoutMs } = { ...defaultOptions, ...options };
   return async function poll(predicate: AsyncPredicate, options?: PollerOptions): Promise<void> {
     const description = options?.description;
-    return new Promise(async (resolve, reject) => {
-      const startTime = Date.now();
-      try {
-        if (await predicate(0)) {
-          resolve();
-        } else {
-          const interval = setInterval(async () => {
-            const durationMs = Date.now() - startTime;
-            if (description) {
-              logger.debug(`Waiting ${formatDuration(durationMs)} for ${description}`);
-            }
-            try {
-              if (await predicate(durationMs)) {
-                clearInterval(interval);
-                resolve();
-              } else if (timeoutMs != null && durationMs > timeoutMs) {
-                clearInterval(interval);
-                reject(new Error(`Timeout exceeded`));
-              }
-            } catch (err) {
-              clearInterval(interval);
-              reject(err);
-            }
-          }, intervalMs);
-        }
-      } catch (err) {
-        reject(err);
+    const startTime = Date.now();
+
+    if (await predicate(0)) {
+      return;
+    }
+
+    for (;;) {
+      await sleep(intervalMs);
+
+      const durationMs = Date.now() - startTime;
+
+      if (description) {
+        logger.debug(`Waited ${formatDuration(durationMs)} for ${description}`);
       }
-    });
+
+      if (await predicate(durationMs)) {
+        return;
+      }
+
+      if (timeoutMs != null && durationMs > timeoutMs) {
+        throw new Error("Timeout exceeded");
+      }
+    }
   };
 }
 
@@ -60,7 +55,7 @@ function formatDuration(ms: number): string {
     let minutes = Math.floor(seconds / 60);
     seconds %= 60;
     if (minutes >= 60) {
-      let hours = Math.floor(minutes / 60);
+      const hours = Math.floor(minutes / 60);
       minutes %= 60;
       return `${hours}h${minutes}m${seconds}s`;
     }

@@ -107,7 +107,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
       environment = tags.find((tag) => matchPatterns(tag.Key, configuration.awsEnvironmentTags))?.Value;
     }
     if (environment && envFilter(environment)) {
-      let arnFields = parseArn(role.Arn);
+      const arnFields = parseArn(role.Arn);
       addResourceToMap(resources, role.Arn, arnFields, environment);
       ++foundRoles;
     }

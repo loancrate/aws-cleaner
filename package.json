@@ -12,9 +12,10 @@
     "./src/*": "./dist/*.js"
   },
   "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "lint": "eslint --max-warnings 0",
     "prepare": "husky",
     "prettier": "prettier --write .",
-    "build": "tsc --project tsconfig.build.json",
     "start": "tsx src/index.ts | pino-pretty",
     "test": "jest"
   },
@@ -54,6 +55,7 @@
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.19.3",
+    "eslint": "^9.39.2",
     "husky": "^9.1.7",
     "jest": "^30.2.0",
     "lint-staged": "^16.2.7",
@@ -61,10 +63,15 @@
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.51.0"
   },
   "lint-staged": {
-    "*.{ts,md}": "prettier --write --ignore-unknown"
+    "*.ts": [
+      "eslint --max-warnings 0",
+      "prettier --write"
+    ],
+    "*.md": "prettier --write"
   },
   "prettier": {
     "printWidth": 120

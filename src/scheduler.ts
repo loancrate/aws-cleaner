@@ -41,7 +41,7 @@ export class SchedulerBuilder {
     ++this.taskCount;
     if (sortKey == null) sortKey = this.taskCount;
     const groupKey = makeGroupKey(partitionKey, category);
-    let group = this.inputGroups.get(groupKey);
+    const group = this.inputGroups.get(groupKey);
     if (group) {
       group.tasks.push({ task, sortKey });
     } else {

@@ -17,7 +17,12 @@ export async function getPullRequestNumbers({ token, owner, repository }: Github
       authorization: `token ${token}`,
     },
   });
-  const response = (await githubClient(
+  const response = await githubClient<{
+    repository: {
+      openPullRequests: { nodes: { number: number }[] };
+      lastPullRequest: { nodes: { number: number }[] };
+    };
+  }>(
     `query pullRequests($owner: String!, $repository: String!) {
   repository(owner: $owner, name: $repository) {
     openPullRequests: pullRequests(first: 100, states: [OPEN]) {
@@ -36,12 +41,7 @@ export async function getPullRequestNumbers({ token, owner, repository }: Github
       owner,
       repository,
     },
-  )) as {
-    repository: {
-      openPullRequests: { nodes: { number: number }[] };
-      lastPullRequest: { nodes: { number: number }[] };
-    };
-  };
+  );
   const openPRs = response.repository.openPullRequests.nodes.map((node) => node.number);
   const lastPR = response.repository.lastPullRequest.nodes[0].number;
   return { openPRs, lastPR };

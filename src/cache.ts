@@ -317,7 +317,7 @@ async function fileExists(path: string): Promise<boolean> {
   try {
     await stat(path);
     return true;
-  } catch (err) {
+  } catch {
     return false;
   }
 }

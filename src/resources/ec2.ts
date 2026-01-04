@@ -462,14 +462,14 @@ export async function deleteSecurityGroupRules({
     .map((r) => r.SecurityGroupRuleId)
     .filter(isNotNull);
   if (ingressRuleIds.length > 0) {
-    revokeSecurityGroupIngress(resourceId, ingressRuleIds);
+    await revokeSecurityGroupIngress(resourceId, ingressRuleIds);
   }
   const egressRuleIds = rules
     .filter((r) => r.IsEgress)
     .map((r) => r.SecurityGroupRuleId)
     .filter(isNotNull);
   if (egressRuleIds.length > 0) {
-    revokeSecurityGroupEgress(resourceId, egressRuleIds);
+    await revokeSecurityGroupEgress(resourceId, egressRuleIds);
   }
 }
 
