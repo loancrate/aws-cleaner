@@ -111,7 +111,14 @@ export async function deletePolicy({
 
   const client = getClient();
   const command = new DeletePolicyCommand({ PolicyArn: arn });
-  await throttle(() => client.send(command));
+  try {
+    await throttle(() => client.send(command));
+  } catch (err) {
+    if (getErrorCode(err) === "NoSuchEntity") {
+      return;
+    }
+    throw err;
+  }
 }
 
 async function deletePolicyVersion(PolicyArn: string, VersionId: string): Promise<void> {
@@ -123,8 +130,15 @@ async function deletePolicyVersion(PolicyArn: string, VersionId: string): Promis
 async function listPolicyVersions(PolicyArn: string): Promise<PolicyVersion[]> {
   const client = getClient();
   const command = new ListPolicyVersionsCommand({ PolicyArn });
-  const response = await throttle(() => client.send(command));
-  return response.Versions || [];
+  try {
+    const response = await throttle(() => client.send(command));
+    return response.Versions || [];
+  } catch (err) {
+    if (getErrorCode(err) === "NoSuchEntity") {
+      return [];
+    }
+    throw err;
+  }
 }
 
 export async function deleteRole({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
