@@ -35,7 +35,13 @@ export async function deleteDatabaseCluster({
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
   try {
     await disableDeletionProtection(resourceId);
+  } catch (err) {
+    if (getErrorCode(err) !== "DBClusterNotFoundFault") throw err;
+    // Cluster doesn't exist, nothing to delete
+    return;
+  }
 
+  try {
     const client = getClient();
     const command = new DeleteDBClusterCommand({
       DBClusterIdentifier: resourceId,
@@ -65,10 +71,15 @@ async function disableDeletionProtection(DBClusterIdentifier: string): Promise<v
 }
 
 async function describeDBCluster(DBClusterIdentifier: string): Promise<DBCluster | undefined> {
-  const client = getClient();
-  const command = new DescribeDBClustersCommand({ DBClusterIdentifier });
-  const response = await client.send(command);
-  return response.DBClusters?.[0];
+  try {
+    const client = getClient();
+    const command = new DescribeDBClustersCommand({ DBClusterIdentifier });
+    const response = await client.send(command);
+    return response.DBClusters?.[0];
+  } catch (err) {
+    if (getErrorCode(err) === "DBClusterNotFoundFault") return undefined;
+    throw err;
+  }
 }
 
 export async function deleteDatabaseClusterParameterGroup({
@@ -108,10 +119,15 @@ export async function deleteDatabaseClusterSnapshot({
 }
 
 async function describeDBClusterSnapshots(DBClusterSnapshotIdentifier: string): Promise<DBClusterSnapshot | undefined> {
-  const client = getClient();
-  const command = new DescribeDBClusterSnapshotsCommand({ DBClusterSnapshotIdentifier });
-  const response = await client.send(command);
-  return response.DBClusterSnapshots?.[0];
+  try {
+    const client = getClient();
+    const command = new DescribeDBClusterSnapshotsCommand({ DBClusterSnapshotIdentifier });
+    const response = await client.send(command);
+    return response.DBClusterSnapshots?.[0];
+  } catch (err) {
+    if (getErrorCode(err) === "DBClusterSnapshotNotFoundFault") return undefined;
+    throw err;
+  }
 }
 
 export async function deleteDatabaseInstance({
@@ -142,10 +158,15 @@ export async function deleteDatabaseInstance({
 }
 
 async function describeDBInstance(DBInstanceIdentifier: string): Promise<DBInstance | undefined> {
-  const client = getClient();
-  const command = new DescribeDBInstancesCommand({ DBInstanceIdentifier });
-  const response = await client.send(command);
-  return response.DBInstances?.[0];
+  try {
+    const client = getClient();
+    const command = new DescribeDBInstancesCommand({ DBInstanceIdentifier });
+    const response = await client.send(command);
+    return response.DBInstances?.[0];
+  } catch (err) {
+    if (getErrorCode(err) === "DBInstanceNotFound") return undefined;
+    throw err;
+  }
 }
 
 export async function deleteDatabaseParameterGroup({
@@ -178,10 +199,15 @@ export async function deleteDatabaseSnapshot({
 }
 
 async function describeDBSnapshots(DBSnapshotIdentifier: string): Promise<DBSnapshot | undefined> {
-  const client = getClient();
-  const command = new DescribeDBSnapshotsCommand({ DBSnapshotIdentifier });
-  const response = await client.send(command);
-  return response.DBSnapshots?.[0];
+  try {
+    const client = getClient();
+    const command = new DescribeDBSnapshotsCommand({ DBSnapshotIdentifier });
+    const response = await client.send(command);
+    return response.DBSnapshots?.[0];
+  } catch (err) {
+    if (getErrorCode(err) === "DBSnapshotNotFound") return undefined;
+    throw err;
+  }
 }
 
 export async function deleteDatabaseSubnetGroup({
