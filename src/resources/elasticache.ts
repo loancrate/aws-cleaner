@@ -78,7 +78,8 @@ export async function deleteParameterGroup({ resourceId }: Pick<ResourceDestroye
     });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "CacheParameterGroupNotFoundFault") throw err;
+    const code = getErrorCode(err);
+    if (code !== "CacheParameterGroupNotFound" && code !== "CacheParameterGroupNotFoundFault") throw err;
   }
 }
 
