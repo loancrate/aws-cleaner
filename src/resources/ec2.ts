@@ -183,16 +183,16 @@ export async function deleteInternetGateway({
         }
         let detaching = false;
         for (const attachment of igw.Attachments) {
-          if (attachment.VpcId && attachment.State === AttachmentStatus.attached) {
-            vpcId = attachment.VpcId;
-            logger.info(`Detaching internet gateway ${resourceId} from VPC ${attachment.VpcId}`);
-            await detachInternetGateway(resourceId, attachment.VpcId);
-            detaching = true;
-          } else if (attachment.State === "detaching") {
+          if (attachment.State === AttachmentStatus.detaching) {
             logger.debug(`Internet gateway ${resourceId} is detaching from VPC ${attachment.VpcId}`);
             detaching = true;
-          } else {
-            logger.debug(`Internet gateway ${resourceId} is in state "${attachment.State}"`);
+          } else if (attachment.VpcId && attachment.State !== AttachmentStatus.detached) {
+            vpcId = attachment.VpcId;
+            logger.info(
+              `Detaching internet gateway ${resourceId} from VPC ${attachment.VpcId} (state: ${attachment.State})`,
+            );
+            await detachInternetGateway(resourceId, attachment.VpcId);
+            detaching = true;
           }
         }
         return !detaching;
@@ -206,7 +206,12 @@ export async function deleteInternetGateway({
       await client.send(command);
     }
   } catch (err) {
-    if (getErrorCode(err) === "DependencyViolation" && vpcId != null) {
+    const errorCode = getErrorCode(err);
+    if (errorCode === "InvalidInternetGatewayID.NotFound") {
+      logger.debug(`Internet gateway ${resourceId} already deleted`);
+      return;
+    }
+    if (errorCode === "DependencyViolation" && vpcId != null) {
       const nis = await describeNetworkInterfaces("vpc-id", vpcId);
       const publicNis = nis.filter((ni) => ni.Association?.PublicIp != null);
       const summary = summarizeNetworkInterfaces(publicNis);
