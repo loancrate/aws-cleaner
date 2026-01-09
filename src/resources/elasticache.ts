@@ -125,9 +125,13 @@ export async function deleteCacheSnapshot({ resourceId }: Pick<ResourceDestroyer
 export async function deleteCacheSubnetGroup({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const client = getClient();
-  const command = new DeleteCacheSubnetGroupCommand({
-    CacheSubnetGroupName: resourceId,
-  });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new DeleteCacheSubnetGroupCommand({
+      CacheSubnetGroupName: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "CacheSubnetGroupNotFoundFault") throw err;
+  }
 }

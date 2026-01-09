@@ -85,11 +85,15 @@ async function describeDBCluster(DBClusterIdentifier: string): Promise<DBCluster
 export async function deleteDatabaseClusterParameterGroup({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const client = getClient();
-  const command = new DeleteDBClusterParameterGroupCommand({
-    DBClusterParameterGroupName: resourceId,
-  });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new DeleteDBClusterParameterGroupCommand({
+      DBClusterParameterGroupName: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "DBClusterParameterGroupNotFoundFault") throw err;
+  }
 }
 
 export async function deleteDatabaseClusterSnapshot({
@@ -172,11 +176,15 @@ async function describeDBInstance(DBInstanceIdentifier: string): Promise<DBInsta
 export async function deleteDatabaseParameterGroup({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const client = getClient();
-  const command = new DeleteDBParameterGroupCommand({
-    DBParameterGroupName: resourceId,
-  });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new DeleteDBParameterGroupCommand({
+      DBParameterGroupName: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "DBParameterGroupNotFoundFault") throw err;
+  }
 }
 
 export async function deleteDatabaseSnapshot({
@@ -213,9 +221,13 @@ async function describeDBSnapshots(DBSnapshotIdentifier: string): Promise<DBSnap
 export async function deleteDatabaseSubnetGroup({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const client = getClient();
-  const command = new DeleteDBSubnetGroupCommand({
-    DBSubnetGroupName: resourceId,
-  });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new DeleteDBSubnetGroupCommand({
+      DBSubnetGroupName: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "DBSubnetGroupNotFoundFault") throw err;
+  }
 }
