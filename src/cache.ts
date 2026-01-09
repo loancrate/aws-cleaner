@@ -5,6 +5,7 @@ import os from "os";
 import path from "path";
 import { PullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
+import { InstanceInfo } from "./resources/ec2.js";
 import { ListRole } from "./resources/iam.js";
 import { ResourceTagMappingWithArn } from "./resources/tagging.js";
 import { TerraformWorkspace } from "./tfe.js";
@@ -37,6 +38,9 @@ interface CacheData {
 
   inactiveTaskDefinitionFamilies?: string[];
   inactiveTaskDefinitionFamiliesDate?: string;
+
+  instances?: InstanceInfo[];
+  instancesDate?: string;
 }
 
 interface CacheFile extends CacheData {
@@ -95,6 +99,7 @@ export class Cache {
     this.deleteExpiredRoleTags();
     this.getActiveTaskDefinitionFamilies();
     this.getInactiveTaskDefinitionFamilies();
+    this.getInstances();
 
     if (!this.dirty) {
       return;
@@ -310,6 +315,27 @@ export class Cache {
       this.data.inactiveTaskDefinitionFamilies?.splice(index, 1);
       this.dirty = true;
     }
+  }
+
+  public getInstances(): InstanceInfo[] | undefined {
+    const { instances, instancesDate } = this.data;
+    if (instances && instancesDate) {
+      if (isValid(instancesDate, this.config.resourcesTtlMs)) {
+        logger.debug("Got EC2 instances from cache");
+        return instances;
+      } else {
+        logger.debug(`Cached EC2 instances expired: ${instancesDate}`);
+        delete this.data.instances;
+        delete this.data.instancesDate;
+        this.dirty = true;
+      }
+    }
+  }
+
+  public setInstances(instances: InstanceInfo[]): void {
+    this.data.instances = instances;
+    this.data.instancesDate = new Date().toISOString();
+    this.dirty = true;
   }
 }
 

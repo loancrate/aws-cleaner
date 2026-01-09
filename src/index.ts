@@ -10,6 +10,7 @@ import logger from "./logger.js";
 import { matchPatterns } from "./matchPatterns.js";
 import { getPoller } from "./poll.js";
 import { getResourceHandler } from "./ResourceHandler.js";
+import { listInstances } from "./resources/ec2.js";
 import { listTaskDefinitionFamilies } from "./resources/ecs.js";
 import { listRoles, listRoleTags } from "./resources/iam.js";
 import { getCallerIdentity } from "./resources/sts.js";
@@ -156,6 +157,28 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
   }
 
   logger.info(`Found ${foundTaskDefinitionFamilies} task definition families matching filter`);
+
+  let instances = cache.getInstances();
+  if (!instances) {
+    instances = await listInstances();
+    cache.setInstances(instances);
+  }
+
+  let foundInstances = 0;
+  for (const instance of instances) {
+    if (instance.name) {
+      const environment = getEnvironmentFromName(instance.name);
+      if (environment && envFilter(environment)) {
+        const arn = `arn:aws:ec2:${instance.region}:${accountId}:instance/${instance.instanceId}`;
+        const arnFields = parseArn(arn);
+        addResourceToMap(resources, arn, arnFields, environment);
+        ++foundInstances;
+      }
+    }
+  }
+  if (foundInstances > 0) {
+    logger.info(`Found ${foundInstances} EC2 instances by name pattern matching filter`);
+  }
 
   return resources;
 }

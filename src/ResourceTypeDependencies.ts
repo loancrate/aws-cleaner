@@ -11,7 +11,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "ec2.internet-gateway": ["ec2.elastic-ip"],
   "ec2.launch-template": [],
   "ec2.natgateway": ["ec2.elastic-ip", "ec2.internet-gateway", "ec2.subnet"],
-  "ec2.network-interface": [],
+  "ec2.network-interface": ["ec2.security-group", "ec2.subnet"],
   "ec2.route-table": ["ec2.internet-gateway", "ec2.vpc"],
   "ec2.security-group": ["ec2.vpc"],
   [ec2SecurityGroupRules]: ["ec2.security-group"],

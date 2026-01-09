@@ -162,6 +162,45 @@ export async function describeInstance({ resourceId }: Pick<ResourceDescriberPar
   return resourceId;
 }
 
+export interface InstanceInfo {
+  instanceId: string;
+  name?: string;
+  region: string;
+}
+
+export async function listInstances(): Promise<InstanceInfo[]> {
+  const client = getClient();
+  const region = await client.config.region();
+  const results: InstanceInfo[] = [];
+  let nextToken: string | undefined;
+
+  do {
+    const command = new DescribeInstancesCommand({ NextToken: nextToken });
+    const response = await client.send(command);
+
+    if (response.Reservations) {
+      for (const reservation of response.Reservations) {
+        if (reservation.Instances) {
+          for (const instance of reservation.Instances) {
+            if (instance.InstanceId) {
+              const name = instance.Tags?.find((tag) => tag.Key === "Name")?.Value;
+              results.push({
+                instanceId: instance.InstanceId,
+                name,
+                region,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    nextToken = response.NextToken;
+  } while (nextToken);
+
+  return results;
+}
+
 export async function deleteInternetGateway({
   resourceId,
   poller,
