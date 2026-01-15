@@ -20,11 +20,15 @@ function getClient(): ServiceDiscoveryClient {
 export async function deleteDiscoveryNamespace({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const client = getClient();
-  const command = new DeleteNamespaceCommand({
-    Id: resourceId,
-  });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new DeleteNamespaceCommand({
+      Id: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "NamespaceNotFound") throw err;
+  }
 }
 
 export async function describeDiscoveryNamespace({
