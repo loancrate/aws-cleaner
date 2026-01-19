@@ -40,9 +40,21 @@ export async function deleteCacheCluster({
   try {
     const cluster = await describeCacheCluster(resourceId);
     if (cluster?.ReplicationGroupId) {
+      // Deleting the replication group will automatically delete all its clusters
       await deleteReplicationGroup({ resourceId: cluster.ReplicationGroupId, poller });
+
+      // Just poll for the cluster to be deleted as part of the replication group deletion
+      await poller(
+        async () => {
+          const cluster = await describeCacheCluster(resourceId);
+          return !cluster || cluster.CacheClusterStatus === "deleted";
+        },
+        { description: `ElastiCache cluster ${resourceId} to be deleted` },
+      );
+      return;
     }
 
+    // Standalone cluster without replication group - delete directly
     const client = getClient();
     const command = new DeleteCacheClusterCommand({
       CacheClusterId: resourceId,
