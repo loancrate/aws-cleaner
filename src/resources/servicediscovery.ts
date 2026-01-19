@@ -58,9 +58,13 @@ export async function describeDiscoveryNamespace({
 export async function deleteDiscoveryService({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const client = getClient();
-  const command = new DeleteServiceCommand({
-    Id: resourceId,
-  });
-  await client.send(command);
+  try {
+    const client = getClient();
+    const command = new DeleteServiceCommand({
+      Id: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (getErrorCode(err) !== "ServiceNotFound") throw err;
+  }
 }
