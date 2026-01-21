@@ -147,8 +147,11 @@ export async function deleteTask({
   try {
     await stopTask(cluster, task, "Deleting task");
   } catch (err) {
-    // Ignore "The referenced task was not found"
-    if (getErrorCode(err) !== "InvalidParameterException") throw err;
+    const errorCode = getErrorCode(err);
+    // Ignore if task or cluster is already deleted
+    if (errorCode !== "InvalidParameterException" && errorCode !== "ClusterNotFoundException") {
+      throw err;
+    }
   }
 }
 
