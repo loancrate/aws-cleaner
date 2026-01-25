@@ -142,10 +142,33 @@ export async function deleteService({
 
 export async function deleteTask({
   resourceId,
+  poller,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
   const [cluster, task] = resourceId.split("/", 2);
   try {
     await stopTask(cluster, task, "Deleting task");
+
+    // Wait for the task to fully stop and release its network interface
+    await poller(
+      async () => {
+        try {
+          const tasks = await describeTasks(cluster, [task]);
+          if (!tasks.length) {
+            return true; // Task no longer exists
+          }
+          const taskStatus = tasks[0].lastStatus;
+          logger.debug(`Task ${task} status: ${taskStatus}`);
+          return taskStatus === "STOPPED";
+        } catch (err) {
+          const errorCode = getErrorCode(err);
+          if (errorCode === "ClusterNotFoundException") {
+            return true; // Cluster deleted, task is gone
+          }
+          throw err;
+        }
+      },
+      { description: `ECS task ${task} to stop in cluster ${cluster}` },
+    );
   } catch (err) {
     const errorCode = getErrorCode(err);
     // Ignore if task or cluster is already deleted
