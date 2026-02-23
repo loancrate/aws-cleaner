@@ -254,7 +254,7 @@ export async function deleteInternetGateway({
       const nis = await describeNetworkInterfaces("vpc-id", vpcId);
       const publicNis = nis.filter((ni) => ni.Association?.PublicIp != null);
       const summary = summarizeNetworkInterfaces(publicNis);
-      throw new Error(`Internet gateway ${resourceId} has dependent network interfaces: ${summary}`);
+      throw new Error(`Internet gateway ${resourceId} has dependent network interfaces: ${summary}`, { cause: err });
     }
     throw err;
   }
@@ -429,7 +429,7 @@ export async function deleteSecurityGroup({ resourceId }: Pick<ResourceDestroyer
         return;
       case "DependencyViolation": {
         const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("group-id", resourceId));
-        throw new Error(`Security group ${resourceId} has dependent network interfaces: ${summary}`);
+        throw new Error(`Security group ${resourceId} has dependent network interfaces: ${summary}`, { cause: err });
       }
     }
     throw err;
@@ -550,7 +550,7 @@ export async function deleteSubnet({ resourceId }: Pick<ResourceDestroyerParams,
     }
     if (code === "DependencyViolation") {
       const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("subnet-id", resourceId));
-      throw new Error(`Subnet ${resourceId} has dependent network interfaces: ${summary}`);
+      throw new Error(`Subnet ${resourceId} has dependent network interfaces: ${summary}`, { cause: err });
     }
     throw err;
   }
