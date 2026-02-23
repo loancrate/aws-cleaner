@@ -34,6 +34,7 @@
     "@aws-sdk/client-iam": "^3.962.0",
     "@aws-sdk/client-kafka": "^3.962.0",
     "@aws-sdk/client-kms": "^3.962.0",
+    "@aws-sdk/client-lambda": "^3.962.0",
     "@aws-sdk/client-location": "^3.962.0",
     "@aws-sdk/client-rds": "^3.962.0",
     "@aws-sdk/client-resource-groups-tagging-api": "^3.962.0",

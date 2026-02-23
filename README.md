@@ -90,6 +90,9 @@ The following types are currently supported:
   - Key
 - Kinesis Firehose
   - Delivery Stream
+- Lambda
+  - Event Source Mapping
+  - Function
 - Location
   - Place Index
 - Relational Database Service (RDS)
@@ -97,6 +100,7 @@ The following types are currently supported:
   - Cluster Parameter Group
   - Cluster Snapshot
   - Database
+  - DB Parameter Group
   - Subnet Group
 - Route 53
   - Zone

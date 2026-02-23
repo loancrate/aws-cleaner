@@ -8,6 +8,8 @@ export function getErrorCode(err: unknown): string | undefined {
     if (isObject(err.Error)) {
       if (typeof err.Error.Code === "string") return err.Error.Code;
     }
+    // AWS SDK v3 JSON protocol services (e.g. Lambda, DynamoDB) set name on ServiceException
+    if (typeof err.name === "string") return err.name;
   }
 }
 

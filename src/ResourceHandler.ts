@@ -56,6 +56,7 @@ import { deleteDeliveryStream } from "./resources/firehose.js";
 import { deleteInstanceProfile, deletePolicy, deleteRole } from "./resources/iam.js";
 import { deleteKafkaCluster } from "./resources/kafka.js";
 import { deleteKmsKey, describeKmsKey } from "./resources/kms.js";
+import { deleteEventSourceMapping, deleteLambdaFunction } from "./resources/lambda.js";
 import { deleteLocationPlaceIndex } from "./resources/location.js";
 import { deleteLogGroup } from "./resources/logs.js";
 import {
@@ -63,6 +64,7 @@ import {
   deleteDatabaseClusterParameterGroup,
   deleteDatabaseClusterSnapshot,
   deleteDatabaseInstance,
+  deleteDatabaseParameterGroup,
   deleteDatabaseSubnetGroup,
 } from "./resources/rds.js";
 import { deleteHostedZone } from "./resources/route53.js";
@@ -260,6 +262,14 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
     describer: describeKmsKey,
     destroyer: deleteKmsKey,
   },
+  "lambda.event-source-mapping": {
+    kind: "Lambda Event Source Mapping",
+    destroyer: deleteEventSourceMapping,
+  },
+  "lambda.function": {
+    kind: "Lambda Function",
+    destroyer: deleteLambdaFunction,
+  },
   "logs.log-group": {
     kind: "CloudWatch Log Group",
     destroyer: deleteLogGroup,
@@ -279,6 +289,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "rds.db": {
     kind: "RDS Database",
     destroyer: deleteDatabaseInstance,
+  },
+  "rds.pg": {
+    kind: "RDS DB Parameter Group",
+    destroyer: deleteDatabaseParameterGroup,
   },
   "rds.subgrp": {
     kind: "RDS Subnet Group",
