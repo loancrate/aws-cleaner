@@ -1,3 +1,4 @@
+import { expect, test } from "vitest";
 import { compare, compareNumericString, compareStringOrNumber } from "./compare.js";
 
 test("compare", () => {

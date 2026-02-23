@@ -16,6 +16,6 @@ export default [
     },
   },
   {
-    ignores: ["dist/", "coverage/", "eslint.config.js", "*.cjs"],
+    ignores: ["dist/", "coverage/", "eslint.config.js", "pino-pretty.config.cjs"],
   },
 ];
