@@ -185,7 +185,12 @@ async function listAttachedRolePolicies(RoleName: string): Promise<AttachedPolic
 async function detachRolePolicy(RoleName: string, PolicyArn: string): Promise<void> {
   const client = getClient();
   const command = new DetachRolePolicyCommand({ RoleName, PolicyArn });
-  await throttle(() => client.send(command));
+  try {
+    await throttle(() => client.send(command));
+  } catch (err) {
+    if (getErrorCode(err) === "NoSuchEntity") return;
+    throw err;
+  }
 }
 
 async function listRolePolicies(RoleName: string): Promise<string[]> {
@@ -205,7 +210,12 @@ async function listRolePolicies(RoleName: string): Promise<string[]> {
 async function deleteRolePolicy(RoleName: string, PolicyName: string): Promise<void> {
   const client = getClient();
   const command = new DeleteRolePolicyCommand({ RoleName, PolicyName });
-  await throttle(() => client.send(command));
+  try {
+    await throttle(() => client.send(command));
+  } catch (err) {
+    if (getErrorCode(err) === "NoSuchEntity") return;
+    throw err;
+  }
 }
 
 export type ListRole = Omit<Role, "Tags"> & { Arn: string; RoleName: string };
