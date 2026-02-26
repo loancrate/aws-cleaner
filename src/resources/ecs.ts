@@ -17,7 +17,7 @@ import {
   TaskDefinitionStatus,
 } from "@aws-sdk/client-ecs";
 import { setTimeout } from "timers/promises";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 import logger from "../logger.js";
 import { RateLimiter } from "../RateLimiter.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
@@ -49,7 +49,7 @@ async function throttle<T>(rateLimiter: RateLimiter, task: () => Promise<T>): Pr
     try {
       return await task();
     } catch (err) {
-      if (getErrorCode(err) !== "ThrottlingException") throw err;
+      if (!hasErrorCode(err, "ThrottlingException")) throw err;
       rateLimiter.empty();
       logger.debug(`ECS API throttled, waiting ${backOffMs} ms`);
       await setTimeout(backOffMs);
@@ -66,7 +66,7 @@ export async function deleteCapacityProvider({
   try {
     await throttle(clusterModifyRateLimiter, () => client.send(command));
   } catch (err) {
-    if (getErrorCode(err) === "ResourceNotFoundException") {
+    if (hasErrorCode(err, "ResourceNotFoundException")) {
       return;
     }
     throw err;
@@ -125,7 +125,7 @@ export async function deleteService({
   try {
     await throttle(clusterServiceResourceModifyRateLimiter, () => client.send(command));
   } catch (err) {
-    if (getErrorCode(err) !== "ServiceNotFoundException") throw err;
+    if (!hasErrorCode(err, "ServiceNotFoundException")) throw err;
   }
 
   if (taskArns.length > 0) {
@@ -160,8 +160,7 @@ export async function deleteTask({
           logger.debug(`Task ${task} status: ${taskStatus}`);
           return taskStatus === "STOPPED";
         } catch (err) {
-          const errorCode = getErrorCode(err);
-          if (errorCode === "ClusterNotFoundException") {
+          if (hasErrorCode(err, "ClusterNotFoundException")) {
             return true; // Cluster deleted, task is gone
           }
           throw err;
@@ -170,9 +169,8 @@ export async function deleteTask({
       { description: `ECS task ${task} to stop in cluster ${cluster}` },
     );
   } catch (err) {
-    const errorCode = getErrorCode(err);
     // Ignore if task or cluster is already deleted
-    if (errorCode !== "InvalidParameterException" && errorCode !== "ClusterNotFoundException") {
+    if (!hasErrorCode(err, ["InvalidParameterException", "ClusterNotFoundException"])) {
       throw err;
     }
   }
@@ -185,7 +183,7 @@ async function listTasks(cluster: string, serviceName?: string, desiredStatus?: 
     const response = await throttle(clusterResourceReadRateLimiter, () => client.send(command));
     return response.taskArns || [];
   } catch (err) {
-    if (getErrorCode(err) === "ServiceNotFoundException") {
+    if (hasErrorCode(err, "ServiceNotFoundException")) {
       return [];
     }
     throw err;

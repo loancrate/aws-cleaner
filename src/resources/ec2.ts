@@ -45,7 +45,7 @@ import { DependencyEnumeratorParams } from "../DependencyEnumerator.js";
 import { ResourceDescriberParams } from "../ResourceDescriber.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 import { parseArn } from "../arn.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 import logger from "../logger.js";
 import { isNotNull } from "../typeUtil.js";
 
@@ -98,7 +98,7 @@ export async function deleteFlowLogs({ resourceId }: Pick<ResourceDestroyerParam
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "InvalidFlowLogId.NotFound") throw err;
+    if (!hasErrorCode(err, "InvalidFlowLogId.NotFound")) throw err;
   }
 }
 
@@ -137,7 +137,7 @@ export async function deleteInstance({
       { description: `EC2 instance ${resourceId} to terminate` },
     );
   } catch (err) {
-    if (getErrorCode(err) !== "InvalidInstanceID.NotFound") throw err;
+    if (!hasErrorCode(err, "InvalidInstanceID.NotFound")) throw err;
   }
 }
 
@@ -245,12 +245,11 @@ export async function deleteInternetGateway({
       await client.send(command);
     }
   } catch (err) {
-    const errorCode = getErrorCode(err);
-    if (errorCode === "InvalidInternetGatewayID.NotFound") {
+    if (hasErrorCode(err, "InvalidInternetGatewayID.NotFound")) {
       logger.debug(`Internet gateway ${resourceId} already deleted`);
       return;
     }
-    if (errorCode === "DependencyViolation" && vpcId != null) {
+    if (hasErrorCode(err, "DependencyViolation") && vpcId != null) {
       const nis = await describeNetworkInterfaces("vpc-id", vpcId);
       const publicNis = nis.filter((ni) => ni.Association?.PublicIp != null);
       const summary = summarizeNetworkInterfaces(publicNis);
@@ -290,7 +289,7 @@ export async function deleteNatGateway({
       { description: `NAT gateway ${resourceId} to be deleted` },
     );
   } catch (err) {
-    if (getErrorCode(err) !== "NatGatewayNotFound") throw err;
+    if (!hasErrorCode(err, "NatGatewayNotFound")) throw err;
   }
 }
 
@@ -301,7 +300,7 @@ export async function describeNatGateway({ resourceId }: Pick<ResourceDescriberP
       return `${resourceId} (${await describeSubnet({ resourceId: ngw.SubnetId })})`;
     }
   } catch (err) {
-    if (getErrorCode(err) !== "NatGatewayNotFound") throw err;
+    if (!hasErrorCode(err, "NatGatewayNotFound")) throw err;
   }
   return resourceId;
 }
@@ -380,7 +379,7 @@ export async function deleteRouteTable({
       await client.send(command);
     }
   } catch (err) {
-    if (getErrorCode(err) !== "InvalidRouteTableID.NotFound") throw err;
+    if (!hasErrorCode(err, "InvalidRouteTableID.NotFound")) throw err;
   }
 }
 
@@ -400,7 +399,7 @@ export async function describeRouteTable({ resourceId }: Pick<ResourceDescriberP
       return `${resourceId} (${subnetDescs.join(", ")})`;
     }
   } catch (err) {
-    if (getErrorCode(err) !== "InvalidRouteTableID.NotFound") throw err;
+    if (!hasErrorCode(err, "InvalidRouteTableID.NotFound")) throw err;
   }
   return resourceId;
 }
@@ -424,13 +423,12 @@ export async function deleteSecurityGroup({ resourceId }: Pick<ResourceDestroyer
     const command = new DeleteSecurityGroupCommand({ GroupId: resourceId });
     await client.send(command);
   } catch (err) {
-    switch (getErrorCode(err)) {
-      case "InvalidGroup.NotFound":
-        return;
-      case "DependencyViolation": {
-        const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("group-id", resourceId));
-        throw new Error(`Security group ${resourceId} has dependent network interfaces: ${summary}`, { cause: err });
-      }
+    if (hasErrorCode(err, "InvalidGroup.NotFound")) {
+      return;
+    }
+    if (hasErrorCode(err, "DependencyViolation")) {
+      const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("group-id", resourceId));
+      throw new Error(`Security group ${resourceId} has dependent network interfaces: ${summary}`, { cause: err });
     }
     throw err;
   }
@@ -450,7 +448,7 @@ async function describeSecurityGroups(groupIds: string[]): Promise<SecurityGroup
     const response = await client.send(command);
     return response.SecurityGroups || [];
   } catch (err) {
-    if (getErrorCode(err) === "InvalidGroup.NotFound") {
+    if (hasErrorCode(err, "InvalidGroup.NotFound")) {
       return [];
     }
     throw err;
@@ -544,11 +542,10 @@ export async function deleteSubnet({ resourceId }: Pick<ResourceDestroyerParams,
     const command = new DeleteSubnetCommand({ SubnetId: resourceId });
     await client.send(command);
   } catch (err) {
-    const code = getErrorCode(err);
-    if (code === "InvalidSubnetID.NotFound") {
+    if (hasErrorCode(err, "InvalidSubnetID.NotFound")) {
       return;
     }
-    if (code === "DependencyViolation") {
+    if (hasErrorCode(err, "DependencyViolation")) {
       const summary = summarizeNetworkInterfaces(await describeNetworkInterfaces("subnet-id", resourceId));
       throw new Error(`Subnet ${resourceId} has dependent network interfaces: ${summary}`, { cause: err });
     }
@@ -578,7 +575,7 @@ async function describeSubnets(subnetIds: string[]): Promise<Subnet[]> {
     const response = await client.send(command);
     return response.Subnets || [];
   } catch (err) {
-    if (getErrorCode(err) === "InvalidSubnetID.NotFound") {
+    if (hasErrorCode(err, "InvalidSubnetID.NotFound")) {
       return [];
     }
     throw err;
@@ -605,7 +602,7 @@ export async function deleteVpc({ resourceId }: Pick<ResourceDestroyerParams, "r
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "InvalidVpcID.NotFound") throw err;
+    if (!hasErrorCode(err, "InvalidVpcID.NotFound")) throw err;
   }
 }
 
@@ -622,7 +619,7 @@ export async function describeVpc({ resourceId }: Pick<ResourceDescriberParams, 
       }
     }
   } catch (err) {
-    if (getErrorCode(err) !== "InvalidVpcID.NotFound") throw err;
+    if (!hasErrorCode(err, "InvalidVpcID.NotFound")) throw err;
   }
   return resourceId;
 }
@@ -650,8 +647,7 @@ export async function deleteLaunchTemplate({ resourceId }: Pick<ResourceDestroye
   try {
     await client.send(command);
   } catch (err) {
-    const code = getErrorCode(err);
-    if (code === "InvalidLaunchTemplateId.NotFound" || code === "InvalidLaunchTemplateName.NotFoundException") {
+    if (hasErrorCode(err, ["InvalidLaunchTemplateId.NotFound", "InvalidLaunchTemplateName.NotFoundException"])) {
       return;
     }
     throw err;
@@ -670,7 +666,7 @@ export async function describeLaunchTemplate({
       return `${template.LaunchTemplateName} (${resourceId})`;
     }
   } catch (err) {
-    if (getErrorCode(err) === "InvalidLaunchTemplateId.NotFound") {
+    if (hasErrorCode(err, "InvalidLaunchTemplateId.NotFound")) {
       return undefined;
     }
     throw err;

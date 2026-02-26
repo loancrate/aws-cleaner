@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-servicediscovery";
 import { ResourceDescriberParams } from "../ResourceDescriber.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: ServiceDiscoveryClient | undefined;
 
@@ -27,7 +27,7 @@ export async function deleteDiscoveryNamespace({
     });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "NamespaceNotFound") throw err;
+    if (!hasErrorCode(err, "NamespaceNotFound")) throw err;
   }
 }
 
@@ -51,7 +51,7 @@ export async function describeDiscoveryNamespace({
     }
     return resourceId;
   } catch (err) {
-    if (getErrorCode(err) !== "NamespaceNotFound") throw err;
+    if (!hasErrorCode(err, "NamespaceNotFound")) throw err;
   }
 }
 
@@ -65,6 +65,6 @@ export async function deleteDiscoveryService({
     });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "ServiceNotFound") throw err;
+    if (!hasErrorCode(err, "ServiceNotFound")) throw err;
   }
 }

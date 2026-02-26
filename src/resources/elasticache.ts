@@ -13,7 +13,7 @@ import {
   ReplicationGroup,
 } from "@aws-sdk/client-elasticache";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: ElastiCacheClient | undefined;
 
@@ -69,7 +69,7 @@ export async function deleteCacheCluster({
       { description: `ElastiCache cluster ${resourceId} to be deleted` },
     );
   } catch (err) {
-    if (getErrorCode(err) !== "CacheClusterNotFound") throw err;
+    if (!hasErrorCode(err, "CacheClusterNotFound")) throw err;
   }
 }
 
@@ -90,8 +90,7 @@ export async function deleteParameterGroup({ resourceId }: Pick<ResourceDestroye
     });
     await client.send(command);
   } catch (err) {
-    const code = getErrorCode(err);
-    if (code !== "CacheParameterGroupNotFound" && code !== "CacheParameterGroupNotFoundFault") throw err;
+    if (!hasErrorCode(err, ["CacheParameterGroupNotFound", "CacheParameterGroupNotFoundFault"])) throw err;
   }
 }
 
@@ -123,7 +122,7 @@ export async function deleteReplicationGroup({
       { description: `ElastiCache replication group ${resourceId} to be deleted` },
     );
   } catch (err) {
-    if (getErrorCode(err) !== "ReplicationGroupNotFoundFault") throw err;
+    if (!hasErrorCode(err, "ReplicationGroupNotFoundFault")) throw err;
   }
 }
 
@@ -145,6 +144,6 @@ export async function deleteCacheSubnetGroup({
     });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "CacheSubnetGroupNotFoundFault") throw err;
+    if (!hasErrorCode(err, "CacheSubnetGroupNotFoundFault")) throw err;
   }
 }

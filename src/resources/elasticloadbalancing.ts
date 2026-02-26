@@ -8,7 +8,7 @@ import {
   ModifyLoadBalancerAttributesCommand,
 } from "@aws-sdk/client-elastic-load-balancing-v2";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: ElasticLoadBalancingV2Client | undefined;
 
@@ -25,7 +25,7 @@ export async function deleteListener({ arn }: Pick<ResourceDestroyerParams, "arn
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "ListenerNotFound") throw err;
+    if (!hasErrorCode(err, "ListenerNotFound")) throw err;
   }
 }
 
@@ -35,7 +35,7 @@ export async function deleteListenerRule({ arn }: Pick<ResourceDestroyerParams, 
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "RuleNotFound") throw err;
+    if (!hasErrorCode(err, "RuleNotFound")) throw err;
   }
 }
 
@@ -60,7 +60,7 @@ export async function deleteLoadBalancer({
       { description: `ELB Load Balancer ${resourceId} to be deleted` },
     );
   } catch (err) {
-    if (getErrorCode(err) !== "LoadBalancerNotFound") throw err;
+    if (!hasErrorCode(err, "LoadBalancerNotFound")) throw err;
   }
 }
 

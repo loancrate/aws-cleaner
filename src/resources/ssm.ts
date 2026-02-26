@@ -1,6 +1,6 @@
 import { DeleteParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: SSMClient | undefined;
 
@@ -17,7 +17,7 @@ export async function deleteParameter({ resourceId }: Pick<ResourceDestroyerPara
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "ParameterNotFound") {
+    if (hasErrorCode(err, "ParameterNotFound")) {
       return;
     }
     throw err;

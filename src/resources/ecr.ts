@@ -6,7 +6,7 @@ import {
   ListImagesCommand,
   ListImagesCommandOutput,
 } from "@aws-sdk/client-ecr";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 import logger from "../logger.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 
@@ -46,6 +46,6 @@ export async function deleteRepository({ resourceId }: Pick<ResourceDestroyerPar
     const command = new DeleteRepositoryCommand({ repositoryName: resourceId, force: true });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) !== "RepositoryNotFoundException") throw err;
+    if (!hasErrorCode(err, "RepositoryNotFoundException")) throw err;
   }
 }

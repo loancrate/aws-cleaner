@@ -1,6 +1,6 @@
 import { DeleteEventSourceMappingCommand, DeleteFunctionCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: LambdaClient | undefined;
 
@@ -17,7 +17,7 @@ export async function deleteLambdaFunction({ resourceId }: Pick<ResourceDestroye
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "ResourceNotFoundException") {
+    if (hasErrorCode(err, "ResourceNotFoundException")) {
       return;
     }
     throw err;
@@ -32,7 +32,7 @@ export async function deleteEventSourceMapping({
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "ResourceNotFoundException") {
+    if (hasErrorCode(err, "ResourceNotFoundException")) {
       return;
     }
     throw err;

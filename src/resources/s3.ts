@@ -1,5 +1,5 @@
 import { DeleteBucketCommand, DeleteObjectsCommand, ListObjectVersionsCommand, S3Client } from "@aws-sdk/client-s3";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 import logger from "../logger.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 
@@ -52,7 +52,7 @@ export async function deleteBucket({ resourceId }: Pick<ResourceDestroyerParams,
     const command = new DeleteBucketCommand({ Bucket: resourceId });
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "NoSuchBucket") {
+    if (hasErrorCode(err, "NoSuchBucket")) {
       return;
     }
     throw err;

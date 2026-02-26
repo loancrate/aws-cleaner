@@ -1,6 +1,6 @@
 import { CloudWatchLogsClient, DeleteLogGroupCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: CloudWatchLogsClient | undefined;
 
@@ -17,7 +17,7 @@ export async function deleteLogGroup({ resourceId }: Pick<ResourceDestroyerParam
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "ResourceNotFoundException") {
+    if (hasErrorCode(err, "ResourceNotFoundException")) {
       return;
     }
     throw err;

@@ -1,6 +1,6 @@
 import { DeleteTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
-import { getErrorCode } from "../awserror.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: DynamoDBClient | undefined;
 
@@ -17,7 +17,7 @@ export async function deleteTable({ resourceId }: Pick<ResourceDestroyerParams, 
   try {
     await client.send(command);
   } catch (err) {
-    if (getErrorCode(err) === "ResourceNotFoundException") {
+    if (hasErrorCode(err, "ResourceNotFoundException")) {
       return;
     }
     throw err;

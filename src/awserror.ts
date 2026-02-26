@@ -1,16 +1,25 @@
 import { asError } from "catch-unknown";
+import { isObject } from "./typeUtil.js";
 
-export function getErrorCode(err: unknown): string | undefined {
+export function hasErrorCode(err: unknown, code: string | string[]): boolean {
   if (isObject(err)) {
-    if (typeof err.Code === "string") return err.Code;
-    if (typeof err.__type === "string") return err.__type;
-    // RDS client
-    if (isObject(err.Error)) {
-      if (typeof err.Error.Code === "string") return err.Error.Code;
+    const codes = Array.isArray(code) ? code : [code];
+    for (const c of codes) {
+      if (typeof err.name === "string" && err.name === c) {
+        return true;
+      }
+      if (typeof err.Code === "string" && err.Code === c) {
+        return true;
+      }
+      if (typeof err.__type === "string" && err.__type === c) {
+        return true;
+      }
+      if (isObject(err.Error) && typeof err.Error.Code === "string" && err.Error.Code === c) {
+        return true;
+      }
     }
-    // AWS SDK v3 JSON protocol services (e.g. Lambda, DynamoDB) set name on ServiceException
-    if (typeof err.name === "string") return err.name;
   }
+  return false;
 }
 
 export function getErrorMessage(err: unknown): string {
@@ -19,8 +28,4 @@ export function getErrorMessage(err: unknown): string {
     return err.Error.Message;
   }
   return asError(err).message;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value != null;
 }
