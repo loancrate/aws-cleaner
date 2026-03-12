@@ -92,7 +92,13 @@ export async function deleteDatabaseClusterParameterGroup({
     });
     await client.send(command);
   } catch (err) {
-    if (hasErrorCode(err, ["DBClusterParameterGroupNotFoundFault", "DBClusterParameterGroupNotFound"])) {
+    if (
+      hasErrorCode(err, [
+        "DBClusterParameterGroupNotFound",
+        "DBClusterParameterGroupNotFoundFault",
+        "DBParameterGroupNotFoundFault",
+      ])
+    ) {
       return;
     }
     throw err;
