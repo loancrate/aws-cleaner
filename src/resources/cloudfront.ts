@@ -8,6 +8,7 @@ import {
   UpdateDistributionCommand,
 } from "@aws-sdk/client-cloudfront";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { hasErrorCode } from "../awserror.js";
 import assert from "assert";
 
 let client: CloudFrontClient | undefined;
@@ -22,8 +23,15 @@ function getClient(): CloudFrontClient {
 async function getDistribution(id: string): Promise<Distribution | undefined> {
   const client = getClient();
   const command = new GetDistributionCommand({ Id: id });
-  const output = await client.send(command);
-  return output.Distribution;
+  try {
+    const output = await client.send(command);
+    return output.Distribution;
+  } catch (err) {
+    if (hasErrorCode(err, "NoSuchDistribution")) {
+      return undefined;
+    }
+    throw err;
+  }
 }
 
 async function getDistributionConfig(id: string): Promise<GetDistributionConfigCommandOutput> {
