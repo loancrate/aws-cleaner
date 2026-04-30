@@ -17,7 +17,7 @@ import {
   TaskDefinitionStatus,
 } from "@aws-sdk/client-ecs";
 import { setTimeout } from "timers/promises";
-import { hasErrorCode } from "../awserror.js";
+import { getErrorMessage, hasErrorCode } from "../awserror.js";
 import logger from "../logger.js";
 import { RateLimiter } from "../RateLimiter.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
@@ -109,7 +109,20 @@ export async function deleteContainerInstance({
     containerInstance: instanceId,
     force: true,
   });
-  await throttle(clusterResourceModifyRateLimiter, () => client.send(command));
+  try {
+    await throttle(clusterResourceModifyRateLimiter, () => client.send(command));
+  } catch (err) {
+    if (hasErrorCode(err, "ClusterNotFoundException")) {
+      return;
+    }
+    if (
+      hasErrorCode(err, "InvalidParameterException") &&
+      /container instance .* not found/i.test(getErrorMessage(err))
+    ) {
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function deleteService({
