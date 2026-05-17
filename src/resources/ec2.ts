@@ -635,7 +635,7 @@ export async function deleteVpcEndpoint({ resourceId }: Pick<ResourceDestroyerPa
   const client = getClient();
   const command = new DeleteVpcEndpointsCommand({ VpcEndpointIds: [resourceId] });
   const response = await client.send(command);
-  const errorCode = response.Unsuccessful?.[0].Error?.Code;
+  const errorCode = response.Unsuccessful?.[0]?.Error?.Code;
   if (errorCode != null && errorCode !== "InvalidVpcEndpoint.NotFound") {
     throw new Error(`Failed to delete VPC endpoint ${resourceId}: ${errorCode}`);
   }
