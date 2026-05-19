@@ -61,33 +61,41 @@ function getClient(): EC2Client {
 export async function deleteElasticIp({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
   const client = getClient();
   const command = new ReleaseAddressCommand({ AllocationId: resourceId });
-  await client.send(command);
+  try {
+    await client.send(command);
+  } catch (err) {
+    if (!hasErrorCode(err, "InvalidAllocationID.NotFound")) throw err;
+  }
 }
 
 export async function describeElasticIp({ resourceId }: Pick<ResourceDescriberParams, "resourceId">): Promise<string> {
   const client = getClient();
   const command = new DescribeAddressesCommand({ AllocationIds: [resourceId] });
-  const response = await client.send(command);
-  const eip = response.Addresses?.[0];
-  if (eip?.Tags) {
-    let extra = resourceId;
-    if (eip.NetworkInterfaceId) {
-      const command = new DescribeNetworkInterfacesCommand({ NetworkInterfaceIds: [eip.NetworkInterfaceId] });
-      const response = await client.send(command);
-      const eni = response.NetworkInterfaces?.[0];
-      if (eni?.Description) {
-        extra += ", " + eni.Description;
+  try {
+    const response = await client.send(command);
+    const eip = response.Addresses?.[0];
+    if (eip?.Tags) {
+      let extra = resourceId;
+      if (eip.NetworkInterfaceId) {
+        const command = new DescribeNetworkInterfacesCommand({ NetworkInterfaceIds: [eip.NetworkInterfaceId] });
+        const response = await client.send(command);
+        const eni = response.NetworkInterfaces?.[0];
+        if (eni?.Description) {
+          extra += ", " + eni.Description;
+        }
+      }
+
+      const name = eip.Tags.find((tag) => tag.Key === "Name")?.Value;
+      if (name) {
+        return `${name} (${extra})`;
+      }
+
+      if (eip.PublicIp) {
+        return `${eip.PublicIp} (${extra})`;
       }
     }
-
-    const name = eip.Tags.find((tag) => tag.Key === "Name")?.Value;
-    if (name) {
-      return `${name} (${extra})`;
-    }
-
-    if (eip.PublicIp) {
-      return `${eip.PublicIp} (${extra})`;
-    }
+  } catch (err) {
+    if (!hasErrorCode(err, "InvalidAllocationID.NotFound")) throw err;
   }
   return resourceId;
 }
