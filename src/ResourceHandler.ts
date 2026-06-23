@@ -1,6 +1,7 @@
 import { DependencyEnumerator } from "./DependencyEnumerator.js";
 import { ResourceDescriber } from "./ResourceDescriber.js";
 import { ResourceDestroyer } from "./ResourceDestroyer.js";
+import { deleteScalableTarget } from "./resources/applicationautoscaling.js";
 import { deleteCloudFrontDistribution } from "./resources/cloudfront.js";
 import { deleteCloudWatchAlarm } from "./resources/cloudwatch.js";
 import { deleteTable } from "./resources/dynamodb.js";
@@ -87,6 +88,10 @@ export interface ResourceHandler {
 }
 
 const resourceHandlers: Record<ResourceType, ResourceHandler> = {
+  "application-autoscaling.scalable-target": {
+    kind: "Application Auto Scaling Scalable Target",
+    destroyer: deleteScalableTarget,
+  },
   "cloudfront.distribution": {
     kind: "CloudFront Distribution",
     destroyer: deleteCloudFrontDistribution,

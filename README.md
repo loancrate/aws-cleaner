@@ -37,6 +37,8 @@ For workspaces that are not deleted, we will skip the corresponding environments
 AWS resource types are added as we encounter them and can test deletion of them.
 The following types are currently supported:
 
+- Application Auto Scaling
+  - Scalable Target
 - CloudFront
   - Distribution
 - CloudWatch

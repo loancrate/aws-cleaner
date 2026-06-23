@@ -7,6 +7,7 @@ export const taskDefinitionFamily = "task-definition-family";
 export const ecsTaskDefinitionFamily = `ecs.${taskDefinitionFamily}`;
 
 const resourceTypes = [
+  "application-autoscaling.scalable-target",
   "cloudfront.distribution",
   "cloudwatch.alarm",
   "dynamodb.table",

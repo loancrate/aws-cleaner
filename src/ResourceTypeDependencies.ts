@@ -3,6 +3,7 @@ import { ResourceType, ec2SecurityGroupRules, ecsTaskDefinitionFamily } from "./
 export type ResourceTypeDependencies = Record<ResourceType, ResourceType[]>;
 
 export const resourceTypeDependencies: ResourceTypeDependencies = {
+  "application-autoscaling.scalable-target": ["ecs.service"],
   "cloudfront.distribution": [],
   "cloudwatch.alarm": [],
   "dynamodb.table": [],

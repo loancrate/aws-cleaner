@@ -20,6 +20,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-application-auto-scaling": "^3.995.0",
     "@aws-sdk/client-cloudfront": "^3.995.0",
     "@aws-sdk/client-cloudwatch": "^3.995.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.995.0",
