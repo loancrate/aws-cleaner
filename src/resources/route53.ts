@@ -11,6 +11,7 @@ import {
   Route53Client,
 } from "@aws-sdk/client-route-53";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { hasErrorCode } from "../awserror.js";
 import { Poller } from "../poll.js";
 
 let client: Route53Client | undefined;
@@ -68,21 +69,25 @@ export async function deleteHostedZone({
   resourceId,
   poller,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
-  for (;;) {
-    const response = await listRecordSets(resourceId);
-    if (!response.ResourceRecordSets?.length) break;
+  try {
+    for (;;) {
+      const response = await listRecordSets(resourceId);
+      if (!response.ResourceRecordSets?.length) break;
 
-    const recordSets = response.ResourceRecordSets.filter((rs) => rs.Type !== "NS" && rs.Type !== "SOA");
-    if (recordSets.length) {
-      await deleteRecordSets(resourceId, recordSets, poller);
+      const recordSets = response.ResourceRecordSets.filter((rs) => rs.Type !== "NS" && rs.Type !== "SOA");
+      if (recordSets.length) {
+        await deleteRecordSets(resourceId, recordSets, poller);
+      }
+
+      if (!response.IsTruncated) break;
     }
 
-    if (!response.IsTruncated) break;
+    const client = getClient();
+    const command = new DeleteHostedZoneCommand({
+      Id: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (!hasErrorCode(err, "NoSuchHostedZone")) throw err;
   }
-
-  const client = getClient();
-  const command = new DeleteHostedZoneCommand({
-    Id: resourceId,
-  });
-  await client.send(command);
 }
