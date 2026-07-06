@@ -80,6 +80,7 @@ The following types are currently supported:
   - Listener Rule
   - Load Balancer
   - Target Group
+  - Trust Store
 - EventBridge
   - Rule
 - Identity and Access Management (IAM)

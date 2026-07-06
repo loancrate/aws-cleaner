@@ -3,6 +3,7 @@ import {
   DeleteLoadBalancerCommand,
   DeleteRuleCommand,
   DeleteTargetGroupCommand,
+  DeleteTrustStoreCommand,
   DescribeLoadBalancersCommand,
   ElasticLoadBalancingV2Client,
   ModifyLoadBalancerAttributesCommand,
@@ -77,4 +78,14 @@ export async function deleteTargetGroup({ arn }: Pick<ResourceDestroyerParams, "
   const client = getClient();
   const command = new DeleteTargetGroupCommand({ TargetGroupArn: arn });
   await client.send(command);
+}
+
+export async function deleteTrustStore({ arn }: Pick<ResourceDestroyerParams, "arn">): Promise<void> {
+  const client = getClient();
+  const command = new DeleteTrustStoreCommand({ TrustStoreArn: arn });
+  try {
+    await client.send(command);
+  } catch (err) {
+    if (!hasErrorCode(err, "TrustStoreNotFound")) throw err;
+  }
 }

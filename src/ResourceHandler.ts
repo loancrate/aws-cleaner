@@ -51,6 +51,7 @@ import {
   deleteListenerRule,
   deleteLoadBalancer,
   deleteTargetGroup,
+  deleteTrustStore,
 } from "./resources/elasticloadbalancing.js";
 import { deleteEventBridgeRule } from "./resources/eventbridge.js";
 import { deleteDeliveryStream } from "./resources/firehose.js";
@@ -233,6 +234,10 @@ const resourceHandlers: Record<ResourceType, ResourceHandler> = {
   "elasticloadbalancing.targetgroup": {
     kind: "ELB Target Group",
     destroyer: deleteTargetGroup,
+  },
+  "elasticloadbalancing.truststore": {
+    kind: "ELB Trust Store",
+    destroyer: deleteTrustStore,
   },
   "events.rule": {
     kind: "EventBridge Rule",

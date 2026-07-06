@@ -41,6 +41,7 @@ const resourceTypes = [
   "elasticloadbalancing.listener-rule",
   "elasticloadbalancing.loadbalancer",
   "elasticloadbalancing.targetgroup",
+  "elasticloadbalancing.truststore",
   "events.rule",
   "firehose.deliverystream",
   "geo.place-index",

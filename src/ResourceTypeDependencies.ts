@@ -65,7 +65,11 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
   "elasticache.snapshot": [],
   "elasticache.subnetgroup": ["ec2.subnet"],
   "elasticloadbalancing.listener-rule": ["elasticloadbalancing.listener"],
-  "elasticloadbalancing.listener": ["elasticloadbalancing.loadbalancer", "elasticloadbalancing.targetgroup"],
+  "elasticloadbalancing.listener": [
+    "elasticloadbalancing.loadbalancer",
+    "elasticloadbalancing.targetgroup",
+    "elasticloadbalancing.truststore",
+  ],
   "elasticloadbalancing.loadbalancer": [
     "ec2.elastic-ip",
     "ec2.internet-gateway",
@@ -74,6 +78,7 @@ export const resourceTypeDependencies: ResourceTypeDependencies = {
     "s3",
   ],
   "elasticloadbalancing.targetgroup": ["ec2.vpc"],
+  "elasticloadbalancing.truststore": [],
   "events.rule": [],
   "firehose.deliverystream": [],
   "geo.place-index": [],
