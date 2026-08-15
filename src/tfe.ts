@@ -1,16 +1,36 @@
 import { asError } from "catch-unknown";
 import got, { HTTPError } from "got";
+import { Agent as HttpsAgent } from "https";
 import { setTimeout as sleep } from "timers/promises";
 import { TerraformCloudConfiguration } from "./config.js";
 import logger from "./logger.js";
 
 type TerraformConfig = TerraformCloudConfiguration;
 
+// Reusing connections avoids a TLS handshake per request, which is where
+// transient connection resets show up during long run polling loops.
+const httpsAgent = new HttpsAgent({ keepAlive: true, maxSockets: 10 });
+
 function getClient(token: string) {
   return got.extend({
     prefixUrl: "https://app.terraform.io/api/v2",
     headers: {
       Authorization: `Bearer ${token}`,
+    },
+    agent: {
+      https: httpsAgent,
+    },
+    retry: {
+      // the default limit of 2 only covers about 3 seconds of network trouble
+      limit: 5,
+      backoffLimit: 30_000,
+    },
+    hooks: {
+      beforeRetry: [
+        (error, retryCount) => {
+          logger.warn(`Retrying Terraform Cloud request (attempt ${retryCount}): ${error.message}`);
+        },
+      ],
     },
   });
 }

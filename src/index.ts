@@ -305,24 +305,30 @@ try {
         if (configuration.dryRun) {
           logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
         } else {
-          const running = await isWorkspaceRunning(configuration.terraformCloud, workspace);
-          if (!running) {
-            logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
-            if (workspace.resourceCount > 0) {
-              const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
-              if (destroyRun) {
-                const status = await waitForRun(configuration.terraformCloud, destroyRun);
-                if (status !== "applied" && status !== "planned_and_finished") {
-                  logger.error(`${environment}: Destroy run failed with status ${status}`);
-                  continue;
+          try {
+            const running = await isWorkspaceRunning(configuration.terraformCloud, workspace);
+            if (!running) {
+              logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
+              if (workspace.resourceCount > 0) {
+                const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
+                if (destroyRun) {
+                  const status = await waitForRun(configuration.terraformCloud, destroyRun);
+                  if (status !== "applied" && status !== "planned_and_finished") {
+                    logger.error(`${environment}: Destroy run failed with status ${status}`);
+                    continue;
+                  }
                 }
               }
+              await deleteWorkspace(configuration.terraformCloud, workspace);
+              destroyedWorkspaceIds.add(workspace.id);
+              logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
+            } else {
+              logger.warn(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
             }
-            await deleteWorkspace(configuration.terraformCloud, workspace);
-            destroyedWorkspaceIds.add(workspace.id);
-            logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
-          } else {
-            logger.warn(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
+          } catch (err) {
+            logger.error(
+              `${environment}: Error destroying Terraform workspace ${workspace.name}: ${getErrorMessage(err)}`,
+            );
           }
         }
       }
