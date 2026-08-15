@@ -13,10 +13,7 @@ test("matches err.__type", () => {
 
 test("does not match fully-qualified err.__type", () => {
   expect(
-    hasErrorCode(
-      { __type: "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException" },
-      "ResourceNotFoundException",
-    ),
+    hasErrorCode({ __type: "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException" }, "ResourceNotFoundException"),
   ).toBe(false);
 });
 
