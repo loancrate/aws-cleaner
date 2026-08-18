@@ -263,7 +263,7 @@ try {
       prNumbers = await getPullRequestNumbers(configuration.github);
       cache.setPullRequests(prNumbers);
     }
-    logger.info(`Open PRs: ${prNumbers.openPRs.join(", ")}`);
+    logger.info(`Open PRs (${prNumbers.openPRs.length}): ${prNumbers.openPRs.join(", ")}`);
     logger.info(`Last PR: ${prNumbers.lastPR}`);
   } else {
     logger.info("GitHub not configured");
@@ -277,7 +277,7 @@ try {
       workspaces.sort((a, b) => compare(a.name, b.name));
       cache.setWorkspaces(workspaces);
     }
-    logger.info(`Workspaces: ${workspaces.map((ws) => ws.name).join(", ")}`);
+    logger.info(`Workspaces (${workspaces.length}): ${workspaces.map((ws) => ws.name).join(", ")}`);
   } else {
     logger.info("Terraform Cloud not configured");
   }
