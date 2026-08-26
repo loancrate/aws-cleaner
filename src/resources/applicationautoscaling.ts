@@ -6,6 +6,10 @@ import {
   ScalableTarget,
   ServiceNamespace,
 } from "@aws-sdk/client-application-auto-scaling";
+import { setTimeout } from "timers/promises";
+import { hasErrorCode } from "../awserror.js";
+import logger from "../logger.js";
+import { RateLimiter } from "../RateLimiter.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 
 let client: ApplicationAutoScalingClient | undefined;
@@ -15,6 +19,32 @@ function getClient(): ApplicationAutoScalingClient {
     client = new ApplicationAutoScalingClient({});
   }
   return client;
+}
+
+// Application Auto Scaling doesn't publish request rate quotas, and resolving a single target ARN
+// costs one DescribeScalableTargets call per service namespace (see findScalableTarget below), so
+// these limits are deliberately conservative.
+const describeRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 20, fillRate: 10 });
+const deregisterRateLimiter = new RateLimiter({ windowMs: 1000, maxTokens: 10, fillRate: 5 });
+
+// Throttling isn't modeled by the SDK for this service; it arrives as a generic exception whose
+// code is ThrottlingException and whose message is "Rate exceeded".
+const throttlingErrorCodes = ["ThrottlingException", "Throttling", "TooManyRequestsException"];
+
+async function throttle<T>(rateLimiter: RateLimiter, task: () => Promise<T>): Promise<T> {
+  let backOffMs = 1000;
+  for (;;) {
+    await rateLimiter.wait();
+    try {
+      return await task();
+    } catch (err) {
+      if (!hasErrorCode(err, throttlingErrorCodes)) throw err;
+      rateLimiter.empty();
+      logger.debug(`Application Auto Scaling API throttled, waiting ${backOffMs} ms`);
+      await setTimeout(backOffMs);
+      backOffMs *= 2;
+    }
+  }
 }
 
 // The scalable target ARN exposes only an opaque id, but DeregisterScalableTarget needs the
@@ -27,9 +57,8 @@ async function findScalableTarget(arn: string): Promise<ScalableTarget | undefin
   const client = getClient();
   for (const serviceNamespace of Object.values(ServiceNamespace)) {
     for (let NextToken: string | undefined; ; ) {
-      const response = await client.send(
-        new DescribeScalableTargetsCommand({ ServiceNamespace: serviceNamespace, NextToken }),
-      );
+      const command = new DescribeScalableTargetsCommand({ ServiceNamespace: serviceNamespace, NextToken });
+      const response = await throttle(describeRateLimiter, () => client.send(command));
       const target = response.ScalableTargets?.find((t) => t.ScalableTargetARN === arn);
       if (target) return target;
       NextToken = response.NextToken;
@@ -49,7 +78,7 @@ export async function deleteScalableTarget({ arn }: Pick<ResourceDestroyerParams
     ScalableDimension: target.ScalableDimension,
   });
   try {
-    await client.send(command);
+    await throttle(deregisterRateLimiter, () => client.send(command));
   } catch (err) {
     if (!(err instanceof ObjectNotFoundException)) throw err;
   }
