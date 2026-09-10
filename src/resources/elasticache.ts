@@ -24,53 +24,57 @@ function getClient(): ElastiCacheClient {
   return client;
 }
 
+const cacheClusterNotFoundCodes = ["CacheClusterNotFound", "CacheClusterNotFoundFault"];
+
 async function describeCacheCluster(clusterId: string): Promise<CacheCluster | undefined> {
-  const client = getClient();
-  const command = new DescribeCacheClustersCommand({
-    CacheClusterId: clusterId,
-  });
-  const output = await client.send(command);
-  return output.CacheClusters?.[0];
+  try {
+    const client = getClient();
+    const command = new DescribeCacheClustersCommand({
+      CacheClusterId: clusterId,
+    });
+    const output = await client.send(command);
+    return output.CacheClusters?.[0];
+  } catch (err) {
+    if (hasErrorCode(err, cacheClusterNotFoundCodes)) return undefined;
+    throw err;
+  }
 }
 
 export async function deleteCacheCluster({
   resourceId,
   poller,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
-  try {
-    const cluster = await describeCacheCluster(resourceId);
-    if (cluster?.ReplicationGroupId) {
-      // Deleting the replication group will automatically delete all its clusters
-      await deleteReplicationGroup({ resourceId: cluster.ReplicationGroupId, poller });
+  const cluster = await describeCacheCluster(resourceId);
+  if (!cluster) return;
 
-      // Just poll for the cluster to be deleted as part of the replication group deletion
-      await poller(
-        async () => {
-          const cluster = await describeCacheCluster(resourceId);
-          return !cluster || cluster.CacheClusterStatus === "deleted";
-        },
-        { description: `ElastiCache cluster ${resourceId} to be deleted` },
-      );
-      return;
-    }
-
+  if (cluster.ReplicationGroupId) {
+    // Deleting the replication group will automatically delete all its clusters,
+    // so just poll below for this cluster to be deleted along with it
+    await deleteReplicationGroup({ resourceId: cluster.ReplicationGroupId, poller });
+  } else if (cluster.CacheClusterStatus !== "deleting") {
     // Standalone cluster without replication group - delete directly
-    const client = getClient();
-    const command = new DeleteCacheClusterCommand({
-      CacheClusterId: resourceId,
-    });
-    await client.send(command);
-
-    await poller(
-      async () => {
-        const cluster = await describeCacheCluster(resourceId);
-        return !cluster || cluster.CacheClusterStatus === "deleted";
-      },
-      { description: `ElastiCache cluster ${resourceId} to be deleted` },
-    );
-  } catch (err) {
-    if (!hasErrorCode(err, "CacheClusterNotFound")) throw err;
+    try {
+      const client = getClient();
+      const command = new DeleteCacheClusterCommand({
+        CacheClusterId: resourceId,
+      });
+      await client.send(command);
+    } catch (err) {
+      if (hasErrorCode(err, cacheClusterNotFoundCodes)) return;
+      if (!hasErrorCode(err, "InvalidCacheClusterStateFault")) throw err;
+      // Deletion started between the describe above and this request, so just wait for it below
+      const cluster = await describeCacheCluster(resourceId);
+      if (cluster && cluster.CacheClusterStatus !== "deleting") throw err;
+    }
   }
+
+  await poller(
+    async () => {
+      const cluster = await describeCacheCluster(resourceId);
+      return !cluster || cluster.CacheClusterStatus === "deleted";
+    },
+    { description: `ElastiCache cluster ${resourceId} to be deleted` },
+  );
 }
 
 export async function describeParameterGroup(id: string): Promise<CacheParameterGroup | undefined> {
@@ -95,12 +99,17 @@ export async function deleteParameterGroup({ resourceId }: Pick<ResourceDestroye
 }
 
 async function describeReplicationGroup(id: string): Promise<ReplicationGroup | undefined> {
-  const client = getClient();
-  const command = new DescribeReplicationGroupsCommand({
-    ReplicationGroupId: id,
-  });
-  const output = await client.send(command);
-  return output.ReplicationGroups?.[0];
+  try {
+    const client = getClient();
+    const command = new DescribeReplicationGroupsCommand({
+      ReplicationGroupId: id,
+    });
+    const output = await client.send(command);
+    return output.ReplicationGroups?.[0];
+  } catch (err) {
+    if (hasErrorCode(err, "ReplicationGroupNotFoundFault")) return undefined;
+    throw err;
+  }
 }
 
 export async function deleteReplicationGroup({
@@ -113,17 +122,22 @@ export async function deleteReplicationGroup({
       ReplicationGroupId: resourceId,
     });
     await client.send(command);
-
-    await poller(
-      async () => {
-        const group = await describeReplicationGroup(resourceId);
-        return !group || group.Status === "deleted";
-      },
-      { description: `ElastiCache replication group ${resourceId} to be deleted` },
-    );
   } catch (err) {
-    if (!hasErrorCode(err, "ReplicationGroupNotFoundFault")) throw err;
+    if (hasErrorCode(err, "ReplicationGroupNotFoundFault")) return;
+    if (!hasErrorCode(err, "InvalidReplicationGroupStateFault")) throw err;
+    // Deletion is already in progress, typically because another cluster in the same
+    // replication group requested it concurrently, so just wait for it to finish.
+    const group = await describeReplicationGroup(resourceId);
+    if (group && group.Status !== "deleting") throw err;
   }
+
+  await poller(
+    async () => {
+      const group = await describeReplicationGroup(resourceId);
+      return !group || group.Status === "deleted";
+    },
+    { description: `ElastiCache replication group ${resourceId} to be deleted` },
+  );
 }
 
 export async function deleteCacheSnapshot({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
