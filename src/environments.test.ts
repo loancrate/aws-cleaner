@@ -3,6 +3,7 @@ import {
   EnvironmentPatterns,
   getEnvironmentFromName,
   getPRNumberFromEnvironment,
+  isWorkspaceForEnvironment,
   makeEnvironmentFilter,
   skipWorkspaceEnvironments,
 } from "./environments.js";
@@ -64,10 +65,38 @@ describe(makeEnvironmentFilter, () => {
   });
 });
 
-test("skipWorkspaceEnvironments skips environments with a remaining workspace", () => {
+describe(isWorkspaceForEnvironment, () => {
+  test.each([
+    ["app-pr-12", "pr-12", true],
+    ["pr-12", "pr-12", true],
+    ["pr-12-infra", "pr-12", true],
+    ["app-sandbox", "sandbox", true],
+    ["App-PR-12", "pr-12", true],
+    ["app-pr-123", "pr-12", false],
+    ["app-pr-1", "pr-12", false],
+    ["sandbox2", "sandbox", false],
+    ["app-a.b", "a.b", true],
+    ["app-axb", "a.b", false],
+  ])("%s, %s -> %s", (workspaceName, env, expected) => {
+    expect(isWorkspaceForEnvironment(workspaceName, env)).toBe(expected);
+  });
+});
+
+describe(skipWorkspaceEnvironments, () => {
   const workspaces = [{ name: "app-pr-3" }] as TerraformWorkspace[];
   const filter = skipWorkspaceEnvironments(makeEnvironmentFilter(patterns, prNumbers), workspaces);
-  expect(filter("pr-3")).toBe(false);
-  expect(filter("pr-4")).toBe(true);
-  expect(skipWorkspaceEnvironments(() => true, undefined)("pr-3")).toBe(true);
+
+  test("skips environments with a remaining workspace", () => {
+    expect(filter("pr-3")).toBe(false);
+    expect(filter("pr-4")).toBe(true);
+  });
+
+  test("does not skip an environment whose name prefixes another workspace's", () => {
+    const filter = skipWorkspaceEnvironments(() => true, [{ name: "app-pr-123" }] as TerraformWorkspace[]);
+    expect(filter("pr-12")).toBe(true);
+  });
+
+  test("skips nothing without workspaces", () => {
+    expect(skipWorkspaceEnvironments(() => true, undefined)("pr-3")).toBe(true);
+  });
 });

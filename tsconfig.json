@@ -1,6 +1,16 @@
 {
   "extends": "@tsconfig/node24/tsconfig.json",
   "compilerOptions": {
+    // @tsconfig/node24's libs, plus ES2025.RegExp for RegExp.escape, which Node 24 supports
+    "lib": [
+      "es2024",
+      "ESNext.Array",
+      "ESNext.Collection",
+      "ESNext.Error",
+      "ESNext.Iterator",
+      "ESNext.Promise",
+      "ES2025.RegExp"
+    ],
     "sourceMap": true,
     "rootDir": "src",
     "outDir": "dist"

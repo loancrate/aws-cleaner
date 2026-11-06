@@ -54,5 +54,13 @@ export function skipWorkspaceEnvironments(
   filter: EnvironmentFilter,
   workspaces: TerraformWorkspace[] | undefined,
 ): EnvironmentFilter {
-  return (env) => filter(env) && !workspaces?.some((ws) => ws.name.includes(env));
+  return (env) => filter(env) && !workspaces?.some((ws) => isWorkspaceForEnvironment(ws.name, env));
+}
+
+/**
+ * Returns whether a workspace name contains the environment as a whole word, so that "app-pr-12" matches
+ * "pr-12" but "app-pr-123" does not. Ignores case, since workspace names and tags may be cased differently.
+ */
+export function isWorkspaceForEnvironment(workspaceName: string, env: string): boolean {
+  return new RegExp(`(?<![a-z0-9])${RegExp.escape(env)}(?![a-z0-9])`, "i").test(workspaceName);
 }
