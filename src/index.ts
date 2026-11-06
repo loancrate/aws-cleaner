@@ -19,7 +19,7 @@ import { getResourceHandler } from "./ResourceHandler.js";
 import { listInstances } from "./resources/ec2.js";
 import { listTaskDefinitionFamilies } from "./resources/ecs.js";
 import { listRoles, listRoleTags } from "./resources/iam.js";
-import { getCallerIdentity } from "./resources/sts.js";
+import { getAwsAccount } from "./resources/sts.js";
 import { getResources } from "./resources/tagging.js";
 import { ec2SecurityGroupRules, isResourceType, ResourceType } from "./ResourceType.js";
 import { resourceTypeDependencies } from "./ResourceTypeDependencies.js";
@@ -49,7 +49,11 @@ function addResourceToMap(map: ResourceEnvironmentMap, arn: string, arnFields: A
   }
 }
 
-async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cache): Promise<ResourceEnvironmentMap> {
+async function getEnvironmentResources(
+  envFilter: EnvironmentFilter,
+  accountId: string,
+  cache: Cache,
+): Promise<ResourceEnvironmentMap> {
   const resources: ResourceEnvironmentMap = new Map();
 
   let taggedResources = cache.getTaggedResources();
@@ -107,8 +111,6 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
     }
   }
   logger.info(`Found ${foundRoles} roles matching filter`);
-
-  const accountId = (await getCallerIdentity()).Account!;
 
   let activeTaskDefinitionFamilies = cache.getActiveTaskDefinitionFamilies();
   if (!activeTaskDefinitionFamilies) {
@@ -204,7 +206,7 @@ async function addTask(
   resourceType: ResourceType,
   schedulerBuilder: SchedulerBuilder,
   cache: Cache,
-): Promise<void> {
+): Promise<boolean> {
   const { resourceId } = arnFields;
   const { kind, describer, destroyer } = getResourceHandler(resourceType);
   const name = (describer && (await describer({ arn, ...arnFields }))) || resourceId;
@@ -237,13 +239,19 @@ async function addTask(
       category: resourceType,
       sortKey: resourceId,
     });
+    return true;
   }
+  return false;
 }
 
+const { accountId, region } = await getAwsAccount();
+const awsTarget = `AWS account ${accountId} in ${region}`;
 if (configuration.dryRun) {
-  logger.info("This is a dry run -- nothing will be deleted");
+  logger.info(`This is a dry run against ${awsTarget} -- nothing will be deleted`);
 } else {
-  logger.warn("This is NOT a dry run! Press Ctrl-C now if you haven't already done a dry run!");
+  logger.warn(
+    `This is NOT a dry run! Resources in ${awsTarget} will be deleted. Press Ctrl-C now if you haven't already done a dry run!`,
+  );
   await sleep(2000);
 }
 
@@ -279,40 +287,46 @@ try {
   const envFilter = makeEnvironmentFilter(configuration, prNumbers);
 
   if (workspaces && configuration.terraformCloud?.destroyWorkspaces) {
+    const workspacesToDestroy = workspaces
+      .flatMap((workspace) => {
+        const environment = getEnvironmentFromName(workspace.name, configuration);
+        return environment && envFilter(environment) ? [{ workspace, environment }] : [];
+      })
+      .sort((a, b) => compareNumericString(a.environment, b.environment));
+    logger.info(
+      `Terraform workspaces to destroy (${workspacesToDestroy.length}): ` +
+        workspacesToDestroy.map(({ workspace, environment }) => `${environment} (${workspace.name})`).join(", "),
+    );
+
     const destroyedWorkspaceIds = new Set<string>();
-    for (const workspace of workspaces) {
-      const environment = getEnvironmentFromName(workspace.name, configuration);
-      if (environment && envFilter(environment)) {
-        try {
-          const running = await isWorkspaceRunning(configuration.terraformCloud, workspace);
-          if (running) {
-            logger.warn(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
-          } else if (configuration.dryRun) {
-            // Assume the destroy would succeed, so the dry run also lists the resources a real run
-            // would delete directly once the workspace is gone
-            logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
-            destroyedWorkspaceIds.add(workspace.id);
-          } else {
-            logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
-            if (workspace.resourceCount > 0) {
-              const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
-              if (destroyRun) {
-                const status = await waitForRun(configuration.terraformCloud, destroyRun);
-                if (status !== "applied" && status !== "planned_and_finished") {
-                  logger.error(`${environment}: Destroy run failed with status ${status}`);
-                  continue;
-                }
+    for (const { workspace, environment } of workspacesToDestroy) {
+      try {
+        const running = await isWorkspaceRunning(configuration.terraformCloud, workspace);
+        if (running) {
+          logger.warn(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
+        } else if (configuration.dryRun) {
+          // Assume the destroy would succeed, so the dry run also lists the resources a real run
+          // would delete directly once the workspace is gone
+          logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
+          destroyedWorkspaceIds.add(workspace.id);
+        } else {
+          logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
+          if (workspace.resourceCount > 0) {
+            const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
+            if (destroyRun) {
+              const status = await waitForRun(configuration.terraformCloud, destroyRun);
+              if (status !== "applied" && status !== "planned_and_finished") {
+                logger.error(`${environment}: Destroy run failed with status ${status}`);
+                continue;
               }
             }
-            await deleteWorkspace(configuration.terraformCloud, workspace);
-            destroyedWorkspaceIds.add(workspace.id);
-            logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
           }
-        } catch (err) {
-          logger.error(
-            `${environment}: Error destroying Terraform workspace ${workspace.name}: ${getErrorMessage(err)}`,
-          );
+          await deleteWorkspace(configuration.terraformCloud, workspace);
+          destroyedWorkspaceIds.add(workspace.id);
+          logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
         }
+      } catch (err) {
+        logger.error(`${environment}: Error destroying Terraform workspace ${workspace.name}: ${getErrorMessage(err)}`);
       }
     }
     workspaces = workspaces.filter((ws) => !destroyedWorkspaceIds.has(ws.id));
@@ -320,6 +334,7 @@ try {
 
   const resources = await getEnvironmentResources(
     configuration.terraformCloud?.destroyResources ? envFilter : skipWorkspaceEnvironments(envFilter, workspaces),
+    accountId,
     cache,
   );
 
@@ -329,6 +344,8 @@ try {
 
   const schedulerBuilder = new SchedulerBuilder(resourceTypeDependencies);
   const unrecognizedResourceTypeArns = new Map<string, string[]>();
+  let resourcesToDelete = 0;
+  const environmentsToDelete = new Set<string>();
   for (const [arn, { arnFields, environment }] of resources) {
     const { service, resourceType: subtype } = arnFields;
     if (configuration.ignoreResourceTypes.has(service)) {
@@ -347,7 +364,10 @@ try {
       }
       continue;
     }
-    await addTask({ arn, arnFields, environment }, resourceType, schedulerBuilder, cache);
+    if (await addTask({ arn, arnFields, environment }, resourceType, schedulerBuilder, cache)) {
+      ++resourcesToDelete;
+      environmentsToDelete.add(environment);
+    }
 
     // untangle dependencies among security groups by deleting all their rules first
     if (resourceType === "ec2.security-group") {
@@ -366,6 +386,9 @@ try {
     }
     process.exit(1);
   }
+
+  const deleteSummary = `${resourcesToDelete} resources in ${environmentsToDelete.size} environments from ${awsTarget}`;
+  logger.info(`${configuration.dryRun ? "Would delete" : "Deleting"} ${deleteSummary}`);
 
   const scheduler = schedulerBuilder.build();
   await scheduler.execute(configuration);
