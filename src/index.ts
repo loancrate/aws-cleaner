@@ -5,6 +5,12 @@ import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
 import { compare, compareNumericString } from "./compare.js";
 import { getConfiguration } from "./config.js";
+import {
+  EnvironmentFilter,
+  getEnvironmentFromName,
+  makeEnvironmentFilter,
+  skipWorkspaceEnvironments,
+} from "./environments.js";
 import { getPullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
 import { matchPatterns } from "./matchPatterns.js";
@@ -28,21 +34,6 @@ import {
 } from "./tfe.js";
 
 const configuration = await getConfiguration();
-
-function getEnvironmentFromName(name: string): string | undefined {
-  return (
-    matchPatterns(name, configuration.protectedEnvironments) ??
-    matchPatterns(name, configuration.targetEnvironments) ??
-    matchPatterns(name, configuration.pullRequestEnvironments)
-  );
-}
-
-function getPRNumberFromEnvironment(env: string): number | undefined {
-  const n = matchPatterns(env, configuration.pullRequestEnvironments, 1);
-  return n != null ? parseInt(n) : n;
-}
-
-type EnvironmentFilter = (env: string) => boolean;
 
 interface Resource {
   arn: string;
@@ -99,7 +90,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
     if (role.RoleName.startsWith("AWS")) {
       continue;
     }
-    let environment = getEnvironmentFromName(role.RoleName);
+    let environment = getEnvironmentFromName(role.RoleName, configuration);
     if (environment == null) {
       let tags = cache.getRoleTags(role.Arn);
       if (!tags) {
@@ -137,7 +128,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
   let foundTaskDefinitionFamilies = 0;
 
   for (const family of activeTaskDefinitionFamilies) {
-    const environment = getEnvironmentFromName(family);
+    const environment = getEnvironmentFromName(family, configuration);
     if (environment && envFilter(environment)) {
       const arnFields = makeTaskDefFamilyArnFields(accountId, family);
       const arn = makeArn(arnFields);
@@ -148,7 +139,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
 
   if (inactiveTaskDefinitionFamilies) {
     for (const family of inactiveTaskDefinitionFamilies) {
-      const environment = getEnvironmentFromName(family);
+      const environment = getEnvironmentFromName(family, configuration);
       if (environment == null || envFilter(environment)) {
         const arnFields = makeTaskDefFamilyArnFields(accountId, family);
         const arn = makeArn(arnFields);
@@ -169,7 +160,7 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
   let foundInstances = 0;
   for (const instance of instances) {
     if (instance.name) {
-      const environment = getEnvironmentFromName(instance.name);
+      const environment = getEnvironmentFromName(instance.name, configuration);
       if (environment && envFilter(environment)) {
         const arn = `arn:aws:ec2:${instance.region}:${accountId}:instance/${instance.instanceId}`;
         const arnFields = parseArn(arn);
@@ -259,7 +250,8 @@ if (configuration.dryRun) {
 const cache = new Cache(configuration.cache);
 await cache.load();
 try {
-  let prNumbers = cache.getPullRequests();
+  // A real run always fetches fresh PRs, since a PR reopened since they were cached would look closed
+  let prNumbers = configuration.dryRun ? cache.getPullRequests() : undefined;
   if (configuration.github) {
     if (!prNumbers) {
       prNumbers = await getPullRequestNumbers(configuration.github);
@@ -284,67 +276,50 @@ try {
     logger.info("Terraform Cloud not configured");
   }
 
-  const envFilter = (env: string): boolean => {
-    if (matchPatterns(env, configuration.protectedEnvironments)) {
-      return false;
-    }
-    if (matchPatterns(env, configuration.targetEnvironments)) {
-      return true;
-    }
-    if (prNumbers && matchPatterns(env, configuration.pullRequestEnvironments)) {
-      const { openPRs, lastPR } = prNumbers;
-      const pr = getPRNumberFromEnvironment(env);
-      return pr != null && pr <= lastPR && !openPRs.includes(pr);
-    }
-    return false;
-  };
+  const envFilter = makeEnvironmentFilter(configuration, prNumbers);
 
   if (workspaces && configuration.terraformCloud?.destroyWorkspaces) {
     const destroyedWorkspaceIds = new Set<string>();
     for (const workspace of workspaces) {
-      const environment = getEnvironmentFromName(workspace.name);
+      const environment = getEnvironmentFromName(workspace.name, configuration);
       if (environment && envFilter(environment)) {
-        if (configuration.dryRun) {
-          logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
-        } else {
-          try {
-            const running = await isWorkspaceRunning(configuration.terraformCloud, workspace);
-            if (!running) {
-              logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
-              if (workspace.resourceCount > 0) {
-                const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
-                if (destroyRun) {
-                  const status = await waitForRun(configuration.terraformCloud, destroyRun);
-                  if (status !== "applied" && status !== "planned_and_finished") {
-                    logger.error(`${environment}: Destroy run failed with status ${status}`);
-                    continue;
-                  }
+        try {
+          const running = await isWorkspaceRunning(configuration.terraformCloud, workspace);
+          if (running) {
+            logger.warn(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
+          } else if (configuration.dryRun) {
+            // Assume the destroy would succeed, so the dry run also lists the resources a real run
+            // would delete directly once the workspace is gone
+            logger.info(`${environment}: Would destroy Terraform workspace ${workspace.name}`);
+            destroyedWorkspaceIds.add(workspace.id);
+          } else {
+            logger.info(`${environment}: Destroying Terraform workspace ${workspace.name}...`);
+            if (workspace.resourceCount > 0) {
+              const destroyRun = await createDestroyRun(configuration.terraformCloud, workspace);
+              if (destroyRun) {
+                const status = await waitForRun(configuration.terraformCloud, destroyRun);
+                if (status !== "applied" && status !== "planned_and_finished") {
+                  logger.error(`${environment}: Destroy run failed with status ${status}`);
+                  continue;
                 }
               }
-              await deleteWorkspace(configuration.terraformCloud, workspace);
-              destroyedWorkspaceIds.add(workspace.id);
-              logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
-            } else {
-              logger.warn(`${environment}: Skipping destroy of locked Terraform workspace ${workspace.name}`);
             }
-          } catch (err) {
-            logger.error(
-              `${environment}: Error destroying Terraform workspace ${workspace.name}: ${getErrorMessage(err)}`,
-            );
+            await deleteWorkspace(configuration.terraformCloud, workspace);
+            destroyedWorkspaceIds.add(workspace.id);
+            logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
           }
+        } catch (err) {
+          logger.error(
+            `${environment}: Error destroying Terraform workspace ${workspace.name}: ${getErrorMessage(err)}`,
+          );
         }
       }
     }
     workspaces = workspaces.filter((ws) => !destroyedWorkspaceIds.has(ws.id));
   }
 
-  // skip environments that are managed by a remaining Terraform workspace
-  const envFilterSkipWorkspaces = (env: string): boolean => {
-    return envFilter(env) && !workspaces?.some((ws) => ws.name.includes(env));
-  };
-
   const resources = await getEnvironmentResources(
-    configuration.terraformCloud?.destroyResources ? envFilter : envFilterSkipWorkspaces,
+    configuration.terraformCloud?.destroyResources ? envFilter : skipWorkspaceEnvironments(envFilter, workspaces),
     cache,
   );
 
