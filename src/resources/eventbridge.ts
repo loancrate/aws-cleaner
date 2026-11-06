@@ -5,6 +5,7 @@ import {
   RemoveTargetsCommand,
 } from "@aws-sdk/client-eventbridge";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
+import { hasErrorCode } from "../awserror.js";
 
 let client: EventBridgeClient | undefined;
 
@@ -18,14 +19,20 @@ function getClient(): EventBridgeClient {
 export async function deleteEventBridgeRule({
   resourceId,
 }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
-  const targetIds = await listTargets(resourceId);
-  await removeTargets(resourceId, targetIds);
+  try {
+    const targetIds = await listTargets(resourceId);
+    if (targetIds.length > 0) {
+      await removeTargets(resourceId, targetIds);
+    }
 
-  const client = getClient();
-  const command = new DeleteRuleCommand({
-    Name: resourceId,
-  });
-  await client.send(command);
+    const client = getClient();
+    const command = new DeleteRuleCommand({
+      Name: resourceId,
+    });
+    await client.send(command);
+  } catch (err) {
+    if (!hasErrorCode(err, "ResourceNotFoundException")) throw err;
+  }
 }
 
 async function listTargets(ruleId: string): Promise<string[]> {
