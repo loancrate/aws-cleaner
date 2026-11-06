@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { hasErrorCode } from "./awserror.js";
+import { getErrorMessage, hasErrorCode } from "./awserror.js";
 
 test("matches err.Code", () => {
   expect(hasErrorCode({ Code: "NoSuchBucket" }, "NoSuchBucket")).toBe(true);
@@ -48,4 +48,9 @@ test("matches name even when __type is fully-qualified", () => {
     name: "ResourceNotFoundException",
   };
   expect(hasErrorCode(err, "ResourceNotFoundException")).toBe(true);
+});
+
+test("getErrorMessage prefers err.Error.Message (RDS style)", () => {
+  expect(getErrorMessage({ message: "UnknownError", Error: { Message: "Cluster is busy" } })).toBe("Cluster is busy");
+  expect(getErrorMessage(new Error("plain"))).toBe("plain");
 });

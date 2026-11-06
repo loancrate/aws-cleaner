@@ -12,7 +12,7 @@ AWS Resource Cleaner enumerates and deletes AWS resources in unwanted environmen
 npm install          # Install dependencies
 npm start            # Run the cleaner (uses tsx, pipes to pino-pretty)
 npm run build        # TypeScript compilation
-npm test             # Run Jest tests
+npm test             # Run Vitest tests
 npm run prettier     # Format code
 npm run lint         # Run ESLint with TypeScript type checking
 ```

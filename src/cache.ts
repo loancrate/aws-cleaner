@@ -243,7 +243,7 @@ export class Cache {
     if (!this.data.roleTags) {
       this.data.roleTags = {};
     }
-    this.data.roleTags[arn] = { tags, date: new Date().toDateString() };
+    this.data.roleTags[arn] = { tags, date: new Date().toISOString() };
     this.dirty = true;
   }
 
