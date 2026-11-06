@@ -1,6 +1,6 @@
 import { asError } from "catch-unknown";
 import { setImmediate, setTimeout as sleep } from "timers/promises";
-import { ArnFields, makeArn, makeTaskDefFamilyArnFields, parseArn } from "./arn.js";
+import { parseArn } from "./arn.js";
 import { getErrorMessage } from "./awserror.js";
 import { Cache } from "./cache.js";
 import { compare, compareNumericString } from "./compare.js";
@@ -13,12 +13,19 @@ import {
 } from "./environments.js";
 import { getPullRequestNumbers } from "./github.js";
 import logger from "./logger.js";
-import { matchPatterns } from "./matchPatterns.js";
 import { getPoller } from "./poll.js";
 import { getResourceHandler } from "./ResourceHandler.js";
 import { listInstances } from "./resources/ec2.js";
 import { listTaskDefinitionFamilies } from "./resources/ecs.js";
-import { listRoles, listRoleTags } from "./resources/iam.js";
+import { ListRole, listRoles, listRoleTags } from "./resources/iam.js";
+import {
+  MatchContext,
+  matchInstances,
+  matchRoles,
+  matchTaggedResources,
+  matchTaskDefinitionFamilies,
+  Resource,
+} from "./resourceMatching.js";
 import { getAwsAccount } from "./resources/sts.js";
 import { getResources } from "./resources/tagging.js";
 import { ec2SecurityGroupRules, isResourceType, ResourceType } from "./ResourceType.js";
@@ -35,52 +42,30 @@ import {
 
 const configuration = await getConfiguration();
 
-interface Resource {
-  arn: string;
-  arnFields: ArnFields;
-  environment: string;
-}
-
 type ResourceEnvironmentMap = Map<string, Resource>;
-
-function addResourceToMap(map: ResourceEnvironmentMap, arn: string, arnFields: ArnFields, environment: string): void {
-  if (!map.has(arn)) {
-    map.set(arn, { arn, arnFields, environment });
-  }
-}
 
 async function getEnvironmentResources(
   envFilter: EnvironmentFilter,
   accountId: string,
   cache: Cache,
 ): Promise<ResourceEnvironmentMap> {
+  const ctx: MatchContext = { config: configuration, filter: envFilter, accountId };
   const resources: ResourceEnvironmentMap = new Map();
+  const add = (matched: Resource[]): number => {
+    for (const resource of matched) {
+      if (!resources.has(resource.arn)) {
+        resources.set(resource.arn, resource);
+      }
+    }
+    return matched.length;
+  };
 
   let taggedResources = cache.getTaggedResources();
   if (!taggedResources) {
     taggedResources = await getResources();
     cache.setTaggedResources(taggedResources);
   }
-
-  let foundResources = 0;
-  for (const resource of taggedResources) {
-    const environment = resource.Tags?.find((tag) => matchPatterns(tag.Key, configuration.awsEnvironmentTags))?.Value;
-    if (environment && envFilter(environment)) {
-      let arn = resource.ResourceARN;
-      let arnFields = parseArn(arn);
-
-      // special handling for ECS task definitions: use the family as the
-      // resource ID so we can more efficiently delete all the revisions
-      if (arnFields.service === "ecs" && arnFields.resourceType === "task-definition") {
-        const family = arnFields.resourceId.split(":")[0];
-        arnFields = makeTaskDefFamilyArnFields(arnFields.accountId, family);
-        arn = makeArn(arnFields);
-      }
-
-      addResourceToMap(resources, arn, arnFields, environment);
-      ++foundResources;
-    }
-  }
+  const foundResources = add(matchTaggedResources(taggedResources, ctx));
   logger.info(`Found ${foundResources} tagged resources matching filter`);
 
   let roles = cache.getRoles();
@@ -88,28 +73,16 @@ async function getEnvironmentResources(
     roles = await listRoles();
     cache.setRoles(roles);
   }
-
-  let foundRoles = 0;
-  for (const role of roles) {
-    if (role.RoleName.startsWith("AWS")) {
-      continue;
+  const getRoleTags = async (role: ListRole) => {
+    let tags = cache.getRoleTags(role.Arn);
+    if (!tags) {
+      tags = await listRoleTags(role.RoleName);
+      cache.setRoleTags(role.Arn, tags);
     }
-    let environment = getEnvironmentFromName(role.RoleName, configuration);
-    if (environment == null) {
-      let tags = cache.getRoleTags(role.Arn);
-      if (!tags) {
-        tags = await listRoleTags(role.RoleName);
-        cache.setRoleTags(role.Arn, tags);
-      }
-      logger.debug({ tags }, `Fetched tags for role ${role.RoleName}`);
-      environment = tags.find((tag) => matchPatterns(tag.Key, configuration.awsEnvironmentTags))?.Value;
-    }
-    if (environment && envFilter(environment)) {
-      const arnFields = parseArn(role.Arn);
-      addResourceToMap(resources, role.Arn, arnFields, environment);
-      ++foundRoles;
-    }
-  }
+    logger.debug({ tags }, `Fetched tags for role ${role.RoleName}`);
+    return tags;
+  };
+  const foundRoles = add(await matchRoles(roles, getRoleTags, ctx));
   logger.info(`Found ${foundRoles} roles matching filter`);
 
   let activeTaskDefinitionFamilies = cache.getActiveTaskDefinitionFamilies();
@@ -117,40 +90,18 @@ async function getEnvironmentResources(
     activeTaskDefinitionFamilies = await listTaskDefinitionFamilies();
     cache.setActiveTaskDefinitionFamilies(activeTaskDefinitionFamilies);
   }
+  let foundTaskDefinitionFamilies = add(matchTaskDefinitionFamilies(activeTaskDefinitionFamilies, ctx));
 
-  let inactiveTaskDefinitionFamilies;
   if (configuration.deleteInactiveTaskDefinitions) {
-    inactiveTaskDefinitionFamilies = cache.getInactiveTaskDefinitionFamilies();
+    let inactiveTaskDefinitionFamilies = cache.getInactiveTaskDefinitionFamilies();
     if (!inactiveTaskDefinitionFamilies) {
       inactiveTaskDefinitionFamilies = await listTaskDefinitionFamilies(undefined, "INACTIVE");
       cache.setInactiveTaskDefinitionFamilies(inactiveTaskDefinitionFamilies);
     }
+    foundTaskDefinitionFamilies += add(
+      matchTaskDefinitionFamilies(inactiveTaskDefinitionFamilies, ctx, { includeUnnamed: true }),
+    );
   }
-
-  let foundTaskDefinitionFamilies = 0;
-
-  for (const family of activeTaskDefinitionFamilies) {
-    const environment = getEnvironmentFromName(family, configuration);
-    if (environment && envFilter(environment)) {
-      const arnFields = makeTaskDefFamilyArnFields(accountId, family);
-      const arn = makeArn(arnFields);
-      addResourceToMap(resources, arn, arnFields, environment);
-      ++foundTaskDefinitionFamilies;
-    }
-  }
-
-  if (inactiveTaskDefinitionFamilies) {
-    for (const family of inactiveTaskDefinitionFamilies) {
-      const environment = getEnvironmentFromName(family, configuration);
-      if (environment == null || envFilter(environment)) {
-        const arnFields = makeTaskDefFamilyArnFields(accountId, family);
-        const arn = makeArn(arnFields);
-        addResourceToMap(resources, arn, arnFields, environment ?? "<none>");
-        ++foundTaskDefinitionFamilies;
-      }
-    }
-  }
-
   logger.info(`Found ${foundTaskDefinitionFamilies} task definition families matching filter`);
 
   let instances = cache.getInstances();
@@ -158,19 +109,7 @@ async function getEnvironmentResources(
     instances = await listInstances();
     cache.setInstances(instances);
   }
-
-  let foundInstances = 0;
-  for (const instance of instances) {
-    if (instance.name) {
-      const environment = getEnvironmentFromName(instance.name, configuration);
-      if (environment && envFilter(environment)) {
-        const arn = `arn:aws:ec2:${instance.region}:${accountId}:instance/${instance.instanceId}`;
-        const arnFields = parseArn(arn);
-        addResourceToMap(resources, arn, arnFields, environment);
-        ++foundInstances;
-      }
-    }
-  }
+  const foundInstances = add(matchInstances(instances, ctx));
   if (foundInstances > 0) {
     logger.info(`Found ${foundInstances} EC2 instances by name pattern matching filter`);
   }
