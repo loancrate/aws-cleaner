@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { compare, compareNumericString, compareStringOrNumber } from "./compare.js";
 
-test("compare", () => {
+test(compare, () => {
   expect(compare(1, 1)).toBe(0);
   expect(compare(1, 9)).toBeLessThan(0);
   expect(compare(9, 1)).toBeGreaterThan(0);
@@ -11,7 +11,7 @@ test("compare", () => {
   expect(compare("bbb", "aaa")).toBeGreaterThan(0);
 });
 
-test("compareStringOrNumber", () => {
+test(compareStringOrNumber, () => {
   expect(compareStringOrNumber(1, 1)).toBe(0);
   expect(compareStringOrNumber(1, 9)).toBeLessThan(0);
   expect(compareStringOrNumber(9, 1)).toBeGreaterThan(0);
@@ -24,7 +24,7 @@ test("compareStringOrNumber", () => {
   expect(compareStringOrNumber("aaa", 1)).toBeGreaterThan(0);
 });
 
-test("compareNumericString", () => {
+test(compareNumericString, () => {
   expect(compareNumericString("a-999", "a-999")).toBe(0);
   expect(compareNumericString("a-999", "a-1000")).toBeLessThan(0);
   expect(compareNumericString("a-1000", "a-999")).toBeGreaterThan(0);
