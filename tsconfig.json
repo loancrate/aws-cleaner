@@ -15,9 +15,5 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src"],
-  "ts-node": {
-    "esm": true,
-    "transpileOnly": true
-  }
+  "include": ["src"]
 }

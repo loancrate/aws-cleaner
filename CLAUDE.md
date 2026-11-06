@@ -26,12 +26,23 @@ npm run lint         # Run ESLint with TypeScript type checking
 
 ### Entry Point & Flow (`src/index.ts`)
 
-1. Load YAML config (`config/default.yaml`, overridable via `NODE_ENV`)
-2. Fetch GitHub open PRs and Terraform Cloud workspaces (with caching)
-3. Filter environments: protected > target > PR-based
-4. Discover resources via AWS Resource Groups Tagging API, IAM roles, and ECS task definitions
-5. Build dependency-aware task scheduler
-6. Execute deletions respecting concurrency limits and dependencies
+1. Load YAML config (first found of `config/local.yaml`, `config/$NODE_ENV.yaml`, `config/default.yaml`)
+2. Look up the AWS account and region from the credentials, log them, and pause 2 seconds before a real run
+3. Fetch open GitHub PRs (cached for dry runs only) and Terraform Cloud workspaces (cached)
+4. Build the environment filter: protected > target > closed PRs
+5. Optionally destroy Terraform workspaces for matching environments
+6. Discover resources via the AWS Resource Groups Tagging API, IAM roles, ECS task definition families, and EC2 instance names, and match them to environments
+7. Build dependency-aware task scheduler
+8. Execute deletions respecting concurrency limits and dependencies
+
+### Environment Matching
+
+The rules that decide what gets deleted are kept out of `index.ts`, take configuration as parameters, and are unit-tested:
+
+- `src/environments.ts` - Extracting environments from names, the environment filter, and matching Terraform workspaces to environments
+- `src/resourceMatching.ts` - Matching tagged resources, IAM roles, task definition families, and EC2 instances to environments
+
+`index.ts` does the fetching and caching. Keep new matching logic in these modules rather than in `index.ts`.
 
 ### Resource Type System
 

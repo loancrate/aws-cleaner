@@ -265,7 +265,8 @@ try {
           logger.info(`${environment}: Destroyed Terraform workspace ${workspace.name}`);
         }
       } catch (err) {
-        logger.error(`${environment}: Error destroying Terraform workspace ${workspace.name}: ${getErrorMessage(err)}`);
+        const action = configuration.dryRun ? "checking" : "destroying";
+        logger.error(`${environment}: Error ${action} Terraform workspace ${workspace.name}: ${getErrorMessage(err)}`);
       }
     }
     workspaces = workspaces.filter((ws) => !destroyedWorkspaceIds.has(ws.id));
