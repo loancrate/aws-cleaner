@@ -35,17 +35,23 @@ export async function deleteRepository({ resourceId }: Pick<ResourceDestroyerPar
   try {
     for (let nextToken: string | undefined; ; ) {
       const response = await listImages(resourceId, nextToken);
-      if (!response.imageIds?.length) break;
+      if (!response.imageIds?.length) {
+        break;
+      }
       logger.debug(`Deleting ${response.imageIds.length} images from ECR repository ${resourceId}`);
       await deleteImages(resourceId, response.imageIds);
       nextToken = response.nextToken;
-      if (!nextToken) break;
+      if (!nextToken) {
+        break;
+      }
     }
 
     const client = getClient();
     const command = new DeleteRepositoryCommand({ repositoryName: resourceId, force: true });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "RepositoryNotFoundException")) throw err;
+    if (!hasErrorCode(err, "RepositoryNotFoundException")) {
+      throw err;
+    }
   }
 }

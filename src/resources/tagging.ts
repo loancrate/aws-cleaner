@@ -29,13 +29,17 @@ export async function getResources(): Promise<ResourceTagMappingWithArn[]> {
       const resources = response.ResourceTagMappingList;
       count += resources.length;
       for (const resource of resources) {
-        if (!resource.ResourceARN) continue;
+        if (!resource.ResourceARN) {
+          continue;
+        }
         result.push(resource as ResourceTagMappingWithArn);
       }
       logger.debug(`Fetched ${count} resources`);
     }
     PaginationToken = response.PaginationToken;
-    if (!PaginationToken) break;
+    if (!PaginationToken) {
+      break;
+    }
   }
   return result;
 }

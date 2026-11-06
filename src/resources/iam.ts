@@ -45,7 +45,9 @@ async function throttle<T>(task: () => Promise<T>): Promise<T> {
     try {
       return await task();
     } catch (err) {
-      if (!hasErrorCode(err, "Throttling")) throw err;
+      if (!hasErrorCode(err, "Throttling")) {
+        throw err;
+      }
       rateLimiter.empty();
       logger.debug(`IAM API throttled, waiting ${backOffMs} ms`);
       await setTimeout(backOffMs);
@@ -87,7 +89,9 @@ async function getInstanceProfile(InstanceProfileName: string): Promise<Instance
     const response = await throttle(() => client.send(command));
     return response.InstanceProfile;
   } catch (err) {
-    if (!hasErrorCode(err, "NoSuchEntity")) throw err;
+    if (!hasErrorCode(err, "NoSuchEntity")) {
+      throw err;
+    }
   }
 }
 
@@ -188,7 +192,9 @@ async function detachRolePolicy(RoleName: string, PolicyArn: string): Promise<vo
   try {
     await throttle(() => client.send(command));
   } catch (err) {
-    if (hasErrorCode(err, "NoSuchEntity")) return;
+    if (hasErrorCode(err, "NoSuchEntity")) {
+      return;
+    }
     throw err;
   }
 }
@@ -213,7 +219,9 @@ async function deleteRolePolicy(RoleName: string, PolicyName: string): Promise<v
   try {
     await throttle(() => client.send(command));
   } catch (err) {
-    if (hasErrorCode(err, "NoSuchEntity")) return;
+    if (hasErrorCode(err, "NoSuchEntity")) {
+      return;
+    }
     throw err;
   }
 }
@@ -230,13 +238,17 @@ export async function listRoles(): Promise<ListRole[]> {
     if (roles) {
       count += roles.length;
       for (const role of roles) {
-        if (!role.Arn || !role.RoleName) continue;
+        if (!role.Arn || !role.RoleName) {
+          continue;
+        }
         result.push(role as ListRole);
       }
       logger.debug(`Fetched ${count} roles`);
     }
     Marker = response.Marker;
-    if (!Marker) break;
+    if (!Marker) {
+      break;
+    }
   }
   return result;
 }

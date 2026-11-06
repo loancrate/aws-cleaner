@@ -27,7 +27,9 @@ export async function deleteDiscoveryNamespace({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "NamespaceNotFound")) throw err;
+    if (!hasErrorCode(err, "NamespaceNotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -51,7 +53,9 @@ export async function describeDiscoveryNamespace({
     }
     return resourceId;
   } catch (err) {
-    if (!hasErrorCode(err, "NamespaceNotFound")) throw err;
+    if (!hasErrorCode(err, "NamespaceNotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -65,6 +69,8 @@ export async function deleteDiscoveryService({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "ServiceNotFound")) throw err;
+    if (!hasErrorCode(err, "ServiceNotFound")) {
+      throw err;
+    }
   }
 }

@@ -19,6 +19,8 @@ export async function deleteDeliveryStream({ resourceId }: Pick<ResourceDestroye
   try {
     await client.send(command);
   } catch (err) {
-    if (!(err instanceof ResourceNotFoundException)) throw err;
+    if (!(err instanceof ResourceNotFoundException)) {
+      throw err;
+    }
   }
 }

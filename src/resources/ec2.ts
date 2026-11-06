@@ -64,7 +64,9 @@ export async function deleteElasticIp({ resourceId }: Pick<ResourceDestroyerPara
   try {
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidAllocationID.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidAllocationID.NotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -95,7 +97,9 @@ export async function describeElasticIp({ resourceId }: Pick<ResourceDescriberPa
       }
     }
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidAllocationID.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidAllocationID.NotFound")) {
+      throw err;
+    }
   }
   return resourceId;
 }
@@ -106,7 +110,9 @@ export async function deleteFlowLogs({ resourceId }: Pick<ResourceDestroyerParam
   try {
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidFlowLogId.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidFlowLogId.NotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -145,7 +151,9 @@ export async function deleteInstance({
       { description: `EC2 instance ${resourceId} to terminate` },
     );
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidInstanceID.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidInstanceID.NotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -297,7 +305,9 @@ export async function deleteNatGateway({
       { description: `NAT gateway ${resourceId} to be deleted` },
     );
   } catch (err) {
-    if (!hasErrorCode(err, "NatGatewayNotFound")) throw err;
+    if (!hasErrorCode(err, "NatGatewayNotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -308,7 +318,9 @@ export async function describeNatGateway({ resourceId }: Pick<ResourceDescriberP
       return `${resourceId} (${await describeSubnet({ resourceId: ngw.SubnetId })})`;
     }
   } catch (err) {
-    if (!hasErrorCode(err, "NatGatewayNotFound")) throw err;
+    if (!hasErrorCode(err, "NatGatewayNotFound")) {
+      throw err;
+    }
   }
   return resourceId;
 }
@@ -387,7 +399,9 @@ export async function deleteRouteTable({
       await client.send(command);
     }
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidRouteTableID.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidRouteTableID.NotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -407,7 +421,9 @@ export async function describeRouteTable({ resourceId }: Pick<ResourceDescriberP
       return `${resourceId} (${subnetDescs.join(", ")})`;
     }
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidRouteTableID.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidRouteTableID.NotFound")) {
+      throw err;
+    }
   }
   return resourceId;
 }
@@ -476,7 +492,9 @@ export async function getSecurityGroupDependencies({
         addSecurityGroupDependencies(depGroup.IpPermissions, VpcId, fullDeps, newDeps);
         addSecurityGroupDependencies(depGroup.IpPermissionsEgress, VpcId, fullDeps, newDeps);
       }
-      if (!newDeps.length) break;
+      if (!newDeps.length) {
+        break;
+      }
       depGroups = await describeSecurityGroups(newDeps);
     }
   }
@@ -610,7 +628,9 @@ export async function deleteVpc({ resourceId }: Pick<ResourceDestroyerParams, "r
   try {
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidVpcID.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidVpcID.NotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -627,7 +647,9 @@ export async function describeVpc({ resourceId }: Pick<ResourceDescriberParams, 
       }
     }
   } catch (err) {
-    if (!hasErrorCode(err, "InvalidVpcID.NotFound")) throw err;
+    if (!hasErrorCode(err, "InvalidVpcID.NotFound")) {
+      throw err;
+    }
   }
   return resourceId;
 }

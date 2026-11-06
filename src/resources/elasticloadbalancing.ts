@@ -26,7 +26,9 @@ export async function deleteListener({ arn }: Pick<ResourceDestroyerParams, "arn
   try {
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "ListenerNotFound")) throw err;
+    if (!hasErrorCode(err, "ListenerNotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -36,7 +38,9 @@ export async function deleteListenerRule({ arn }: Pick<ResourceDestroyerParams, 
   try {
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "RuleNotFound")) throw err;
+    if (!hasErrorCode(err, "RuleNotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -61,7 +65,9 @@ export async function deleteLoadBalancer({
       { description: `ELB Load Balancer ${resourceId} to be deleted` },
     );
   } catch (err) {
-    if (!hasErrorCode(err, "LoadBalancerNotFound")) throw err;
+    if (!hasErrorCode(err, "LoadBalancerNotFound")) {
+      throw err;
+    }
   }
 }
 
@@ -86,6 +92,8 @@ export async function deleteTrustStore({ arn }: Pick<ResourceDestroyerParams, "a
   try {
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "TrustStoreNotFound")) throw err;
+    if (!hasErrorCode(err, "TrustStoreNotFound")) {
+      throw err;
+    }
   }
 }

@@ -44,7 +44,9 @@ export async function deleteBucket({ resourceId }: Pick<ResourceDestroyerParams,
         await client.send(deleteCommand);
       }
 
-      if (!listResponse.IsTruncated) break;
+      if (!listResponse.IsTruncated) {
+        break;
+      }
       KeyMarker = listResponse.NextKeyMarker;
       VersionIdMarker = listResponse.NextVersionIdMarker;
     }

@@ -22,7 +22,9 @@ export async function deleteKmsKey({ resourceId }: Pick<ResourceDestroyerParams,
     await client.send(command);
   } catch (err) {
     // Ignore keys pending deletion
-    if (!hasErrorCode(err, "KMSInvalidStateException")) throw err;
+    if (!hasErrorCode(err, "KMSInvalidStateException")) {
+      throw err;
+    }
   }
 }
 

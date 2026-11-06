@@ -38,7 +38,9 @@ async function throttle<T>(rateLimiter: RateLimiter, task: () => Promise<T>): Pr
     try {
       return await task();
     } catch (err) {
-      if (!hasErrorCode(err, throttlingErrorCodes)) throw err;
+      if (!hasErrorCode(err, throttlingErrorCodes)) {
+        throw err;
+      }
       rateLimiter.empty();
       logger.debug(`Application Auto Scaling API throttled, waiting ${backOffMs} ms`);
       await setTimeout(backOffMs);
@@ -60,9 +62,13 @@ async function findScalableTarget(arn: string): Promise<ScalableTarget | undefin
       const command = new DescribeScalableTargetsCommand({ ServiceNamespace: serviceNamespace, NextToken });
       const response = await throttle(describeRateLimiter, () => client.send(command));
       const target = response.ScalableTargets?.find((t) => t.ScalableTargetARN === arn);
-      if (target) return target;
+      if (target) {
+        return target;
+      }
       NextToken = response.NextToken;
-      if (!NextToken) break;
+      if (!NextToken) {
+        break;
+      }
     }
   }
   return undefined;
@@ -70,7 +76,9 @@ async function findScalableTarget(arn: string): Promise<ScalableTarget | undefin
 
 export async function deleteScalableTarget({ arn }: Pick<ResourceDestroyerParams, "arn">): Promise<void> {
   const target = await findScalableTarget(arn);
-  if (!target) return;
+  if (!target) {
+    return;
+  }
   const client = getClient();
   const command = new DeregisterScalableTargetCommand({
     ServiceNamespace: target.ServiceNamespace,
@@ -80,6 +88,8 @@ export async function deleteScalableTarget({ arn }: Pick<ResourceDestroyerParams
   try {
     await throttle(deregisterRateLimiter, () => client.send(command));
   } catch (err) {
-    if (!(err instanceof ObjectNotFoundException)) throw err;
+    if (!(err instanceof ObjectNotFoundException)) {
+      throw err;
+    }
   }
 }

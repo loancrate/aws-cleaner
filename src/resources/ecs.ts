@@ -49,7 +49,9 @@ async function throttle<T>(rateLimiter: RateLimiter, task: () => Promise<T>): Pr
     try {
       return await task();
     } catch (err) {
-      if (!hasErrorCode(err, "ThrottlingException")) throw err;
+      if (!hasErrorCode(err, "ThrottlingException")) {
+        throw err;
+      }
       rateLimiter.empty();
       logger.debug(`ECS API throttled, waiting ${backOffMs} ms`);
       await setTimeout(backOffMs);
@@ -138,7 +140,9 @@ export async function deleteService({
   try {
     await throttle(clusterServiceResourceModifyRateLimiter, () => client.send(command));
   } catch (err) {
-    if (!hasErrorCode(err, "ServiceNotFoundException")) throw err;
+    if (!hasErrorCode(err, "ServiceNotFoundException")) {
+      throw err;
+    }
   }
 
   if (taskArns.length > 0) {
@@ -226,10 +230,14 @@ async function listTaskDefinitions(
     const client = getClient();
     const command = new ListTaskDefinitionsCommand({ familyPrefix, status, nextToken });
     const response = await throttle(taskDefReadRateLimiter, () => client.send(command));
-    if (!response.taskDefinitionArns) break;
+    if (!response.taskDefinitionArns) {
+      break;
+    }
     result.push(...response.taskDefinitionArns);
     nextToken = response.nextToken;
-    if (!nextToken) break;
+    if (!nextToken) {
+      break;
+    }
   }
   return result;
 }
@@ -260,10 +268,14 @@ export async function listTaskDefinitionFamilies(
     const client = getClient();
     const command = new ListTaskDefinitionFamiliesCommand({ familyPrefix, status, nextToken });
     const response = await throttle(taskDefReadRateLimiter, () => client.send(command));
-    if (!response.families) break;
+    if (!response.families) {
+      break;
+    }
     result.push(...response.families);
     nextToken = response.nextToken;
-    if (!nextToken) break;
+    if (!nextToken) {
+      break;
+    }
   }
   return result;
 }

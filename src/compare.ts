@@ -11,7 +11,9 @@ export function compareNumericString(a: string, b: string): number {
     const { number: aNumber, text: aText, rest: aRest } = getLeadingNumeric(a);
     const { number: bNumber, text: bText, rest: bRest } = getLeadingNumeric(b);
     const result = aNumber != null && bNumber != null ? aNumber - bNumber : compare(aText, bText);
-    if (result !== 0 || (!aRest && !bRest)) return result;
+    if (result !== 0 || (!aRest && !bRest)) {
+      return result;
+    }
     a = aRest;
     b = bRest;
   }

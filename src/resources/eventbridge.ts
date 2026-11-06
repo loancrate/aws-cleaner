@@ -31,7 +31,9 @@ export async function deleteEventBridgeRule({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "ResourceNotFoundException")) throw err;
+    if (!hasErrorCode(err, "ResourceNotFoundException")) {
+      throw err;
+    }
   }
 }
 

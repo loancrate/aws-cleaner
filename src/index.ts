@@ -96,7 +96,9 @@ async function getEnvironmentResources(envFilter: EnvironmentFilter, cache: Cach
 
   let foundRoles = 0;
   for (const role of roles) {
-    if (role.RoleName.startsWith("AWS")) continue;
+    if (role.RoleName.startsWith("AWS")) {
+      continue;
+    }
     let environment = getEnvironmentFromName(role.RoleName);
     if (environment == null) {
       let tags = cache.getRoleTags(role.Arn);
@@ -354,9 +356,13 @@ try {
   const unrecognizedResourceTypeArns = new Map<string, string[]>();
   for (const [arn, { arnFields, environment }] of resources) {
     const { service, resourceType: subtype } = arnFields;
-    if (configuration.ignoreResourceTypes.has(service)) continue;
+    if (configuration.ignoreResourceTypes.has(service)) {
+      continue;
+    }
     const resourceType = subtype ? `${service}.${subtype}` : service;
-    if (configuration.ignoreResourceTypes.has(resourceType)) continue;
+    if (configuration.ignoreResourceTypes.has(resourceType)) {
+      continue;
+    }
     if (!isResourceType(resourceType)) {
       const arns = unrecognizedResourceTypeArns.get(resourceType);
       if (arns) {

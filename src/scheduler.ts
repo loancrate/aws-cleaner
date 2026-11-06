@@ -39,7 +39,9 @@ export class SchedulerBuilder {
 
   public addTask(task: Task, { partitionKey, category, sortKey }: TaskParams = {}) {
     ++this.taskCount;
-    if (sortKey == null) sortKey = this.taskCount;
+    if (sortKey == null) {
+      sortKey = this.taskCount;
+    }
     const groupKey = makeGroupKey(partitionKey, category);
     const group = this.inputGroups.get(groupKey);
     if (group) {
@@ -154,7 +156,9 @@ export class Scheduler {
         await this.startGroup(group, options);
       }
 
-      if (this.aborting || !this.runningTasks.length) break;
+      if (this.aborting || !this.runningTasks.length) {
+        break;
+      }
 
       // each time a task completes, check for new runnable groups
       await Promise.race(this.runningTasks);
@@ -174,7 +178,9 @@ export class Scheduler {
       group.runningTaskCount = (group.runningTaskCount || 0) + 1;
       const runningTask = task()
         .catch(() => {
-          if (!continueAfterErrors) this.aborting = true;
+          if (!continueAfterErrors) {
+            this.aborting = true;
+          }
         })
         .finally(() => {
           if (--group.runningTaskCount! === 0 && !this.aborting) {
@@ -186,7 +192,9 @@ export class Scheduler {
 
       if (this.runningTasks.length >= maximumConcurrency) {
         await Promise.race(this.runningTasks);
-        if (this.aborting) break;
+        if (this.aborting) {
+          break;
+        }
       }
     }
   }

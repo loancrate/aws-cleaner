@@ -72,14 +72,18 @@ export async function deleteHostedZone({
   try {
     for (;;) {
       const response = await listRecordSets(resourceId);
-      if (!response.ResourceRecordSets?.length) break;
+      if (!response.ResourceRecordSets?.length) {
+        break;
+      }
 
       const recordSets = response.ResourceRecordSets.filter((rs) => rs.Type !== "NS" && rs.Type !== "SOA");
       if (recordSets.length) {
         await deleteRecordSets(resourceId, recordSets, poller);
       }
 
-      if (!response.IsTruncated) break;
+      if (!response.IsTruncated) {
+        break;
+      }
     }
 
     const client = getClient();
@@ -88,6 +92,8 @@ export async function deleteHostedZone({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "NoSuchHostedZone")) throw err;
+    if (!hasErrorCode(err, "NoSuchHostedZone")) {
+      throw err;
+    }
   }
 }

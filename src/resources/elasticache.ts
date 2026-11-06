@@ -35,7 +35,9 @@ async function describeCacheCluster(clusterId: string): Promise<CacheCluster | u
     const output = await client.send(command);
     return output.CacheClusters?.[0];
   } catch (err) {
-    if (hasErrorCode(err, cacheClusterNotFoundCodes)) return undefined;
+    if (hasErrorCode(err, cacheClusterNotFoundCodes)) {
+      return undefined;
+    }
     throw err;
   }
 }
@@ -45,7 +47,9 @@ export async function deleteCacheCluster({
   poller,
 }: Pick<ResourceDestroyerParams, "resourceId" | "poller">): Promise<void> {
   const cluster = await describeCacheCluster(resourceId);
-  if (!cluster) return;
+  if (!cluster) {
+    return;
+  }
 
   if (cluster.ReplicationGroupId) {
     // Deleting the replication group will automatically delete all its clusters,
@@ -60,11 +64,17 @@ export async function deleteCacheCluster({
       });
       await client.send(command);
     } catch (err) {
-      if (hasErrorCode(err, cacheClusterNotFoundCodes)) return;
-      if (!hasErrorCode(err, "InvalidCacheClusterStateFault")) throw err;
+      if (hasErrorCode(err, cacheClusterNotFoundCodes)) {
+        return;
+      }
+      if (!hasErrorCode(err, "InvalidCacheClusterStateFault")) {
+        throw err;
+      }
       // Deletion started between the describe above and this request, so just wait for it below
       const cluster = await describeCacheCluster(resourceId);
-      if (cluster && cluster.CacheClusterStatus !== "deleting") throw err;
+      if (cluster && cluster.CacheClusterStatus !== "deleting") {
+        throw err;
+      }
     }
   }
 
@@ -94,7 +104,9 @@ export async function deleteParameterGroup({ resourceId }: Pick<ResourceDestroye
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, ["CacheParameterGroupNotFound", "CacheParameterGroupNotFoundFault"])) throw err;
+    if (!hasErrorCode(err, ["CacheParameterGroupNotFound", "CacheParameterGroupNotFoundFault"])) {
+      throw err;
+    }
   }
 }
 
@@ -107,7 +119,9 @@ async function describeReplicationGroup(id: string): Promise<ReplicationGroup | 
     const output = await client.send(command);
     return output.ReplicationGroups?.[0];
   } catch (err) {
-    if (hasErrorCode(err, "ReplicationGroupNotFoundFault")) return undefined;
+    if (hasErrorCode(err, "ReplicationGroupNotFoundFault")) {
+      return undefined;
+    }
     throw err;
   }
 }
@@ -123,12 +137,18 @@ export async function deleteReplicationGroup({
     });
     await client.send(command);
   } catch (err) {
-    if (hasErrorCode(err, "ReplicationGroupNotFoundFault")) return;
-    if (!hasErrorCode(err, "InvalidReplicationGroupStateFault")) throw err;
+    if (hasErrorCode(err, "ReplicationGroupNotFoundFault")) {
+      return;
+    }
+    if (!hasErrorCode(err, "InvalidReplicationGroupStateFault")) {
+      throw err;
+    }
     // Deletion is already in progress, typically because another cluster in the same
     // replication group requested it concurrently, so just wait for it to finish.
     const group = await describeReplicationGroup(resourceId);
-    if (group && group.Status !== "deleting") throw err;
+    if (group && group.Status !== "deleting") {
+      throw err;
+    }
   }
 
   await poller(
@@ -158,6 +178,8 @@ export async function deleteCacheSubnetGroup({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "CacheSubnetGroupNotFoundFault")) throw err;
+    if (!hasErrorCode(err, "CacheSubnetGroupNotFoundFault")) {
+      throw err;
+    }
   }
 }

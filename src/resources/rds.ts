@@ -36,7 +36,9 @@ export async function deleteDatabaseCluster({
   try {
     await disableDeletionProtection(resourceId);
   } catch (err) {
-    if (!hasErrorCode(err, "DBClusterNotFoundFault")) throw err;
+    if (!hasErrorCode(err, "DBClusterNotFoundFault")) {
+      throw err;
+    }
     // Cluster doesn't exist, nothing to delete
     return;
   }
@@ -49,7 +51,9 @@ export async function deleteDatabaseCluster({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "DBClusterNotFoundFault")) throw err;
+    if (!hasErrorCode(err, "DBClusterNotFoundFault")) {
+      throw err;
+    }
   }
 
   await poller(
@@ -77,7 +81,9 @@ async function describeDBCluster(DBClusterIdentifier: string): Promise<DBCluster
     const response = await client.send(command);
     return response.DBClusters?.[0];
   } catch (err) {
-    if (hasErrorCode(err, "DBClusterNotFoundFault")) return undefined;
+    if (hasErrorCode(err, "DBClusterNotFoundFault")) {
+      return undefined;
+    }
     throw err;
   }
 }
@@ -116,8 +122,12 @@ export async function deleteDatabaseClusterSnapshot({
     });
     await client.send(command);
   } catch (err) {
-    if (hasErrorCode(err, "DBClusterSnapshotNotFoundFault")) return;
-    if (!hasErrorCode(err, "InvalidDBClusterSnapshotStateFault")) throw err;
+    if (hasErrorCode(err, "DBClusterSnapshotNotFoundFault")) {
+      return;
+    }
+    if (!hasErrorCode(err, "InvalidDBClusterSnapshotStateFault")) {
+      throw err;
+    }
   }
 
   await poller(
@@ -137,7 +147,9 @@ async function describeDBClusterSnapshots(DBClusterSnapshotIdentifier: string): 
     const response = await client.send(command);
     return response.DBClusterSnapshots?.[0];
   } catch (err) {
-    if (hasErrorCode(err, "DBClusterSnapshotNotFoundFault")) return undefined;
+    if (hasErrorCode(err, "DBClusterSnapshotNotFoundFault")) {
+      return undefined;
+    }
     throw err;
   }
 }
@@ -155,8 +167,12 @@ export async function deleteDatabaseInstance({
     });
     await client.send(command);
   } catch (err) {
-    if (hasErrorCode(err, "DBInstanceNotFound")) return;
-    if (!hasErrorCode(err, "InvalidDBInstanceState")) throw err;
+    if (hasErrorCode(err, "DBInstanceNotFound")) {
+      return;
+    }
+    if (!hasErrorCode(err, "InvalidDBInstanceState")) {
+      throw err;
+    }
   }
 
   await poller(
@@ -175,7 +191,9 @@ async function describeDBInstance(DBInstanceIdentifier: string): Promise<DBInsta
     const response = await client.send(command);
     return response.DBInstances?.[0];
   } catch (err) {
-    if (hasErrorCode(err, "DBInstanceNotFound")) return undefined;
+    if (hasErrorCode(err, "DBInstanceNotFound")) {
+      return undefined;
+    }
     throw err;
   }
 }
@@ -190,7 +208,9 @@ export async function deleteDatabaseParameterGroup({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "DBParameterGroupNotFoundFault")) throw err;
+    if (!hasErrorCode(err, "DBParameterGroupNotFoundFault")) {
+      throw err;
+    }
   }
 }
 
@@ -220,7 +240,9 @@ async function describeDBSnapshots(DBSnapshotIdentifier: string): Promise<DBSnap
     const response = await client.send(command);
     return response.DBSnapshots?.[0];
   } catch (err) {
-    if (hasErrorCode(err, "DBSnapshotNotFound")) return undefined;
+    if (hasErrorCode(err, "DBSnapshotNotFound")) {
+      return undefined;
+    }
     throw err;
   }
 }
@@ -235,6 +257,8 @@ export async function deleteDatabaseSubnetGroup({
     });
     await client.send(command);
   } catch (err) {
-    if (!hasErrorCode(err, "DBSubnetGroupNotFoundFault")) throw err;
+    if (!hasErrorCode(err, "DBSubnetGroupNotFoundFault")) {
+      throw err;
+    }
   }
 }

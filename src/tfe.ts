@@ -79,7 +79,9 @@ export async function getWorkspaces({ token, organization }: TerraformConfig): P
       }
       result.push(workspace);
     }
-    if (!data.meta.pagination["next-page"]) break;
+    if (!data.meta.pagination["next-page"]) {
+      break;
+    }
   }
   return result;
 }
