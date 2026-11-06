@@ -486,7 +486,7 @@ export async function getSecurityGroupDependencies({
   const sg = (await describeSecurityGroups([resourceId]))[0];
   if (sg) {
     const { VpcId } = sg;
-    for (let depGroups = [sg]; ; ) {
+    for (let depGroups = [sg]; ;) {
       const newDeps: string[] = [];
       for (const depGroup of depGroups) {
         addSecurityGroupDependencies(depGroup.IpPermissions, VpcId, fullDeps, newDeps);

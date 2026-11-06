@@ -33,7 +33,7 @@ async function listImages(repositoryName: string, nextToken?: string): Promise<L
 
 export async function deleteRepository({ resourceId }: Pick<ResourceDestroyerParams, "resourceId">): Promise<void> {
   try {
-    for (let nextToken: string | undefined; ; ) {
+    for (let nextToken: string | undefined; ;) {
       const response = await listImages(resourceId, nextToken);
       if (!response.imageIds?.length) {
         break;

@@ -16,7 +16,7 @@ export async function deleteBucket({ resourceId }: Pick<ResourceDestroyerParams,
   try {
     const client = getClient();
 
-    for (let KeyMarker: string | undefined, VersionIdMarker: string | undefined; ; ) {
+    for (let KeyMarker: string | undefined, VersionIdMarker: string | undefined; ;) {
       const listCommand = new ListObjectVersionsCommand({ Bucket: resourceId, KeyMarker, VersionIdMarker });
       const listResponse = await client.send(listCommand);
 

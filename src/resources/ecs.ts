@@ -226,7 +226,7 @@ async function listTaskDefinitions(
   status: TaskDefinitionStatus = TaskDefinitionStatus.ACTIVE,
 ): Promise<string[]> {
   const result: string[] = [];
-  for (let nextToken: string | undefined; ; ) {
+  for (let nextToken: string | undefined; ;) {
     const client = getClient();
     const command = new ListTaskDefinitionsCommand({ familyPrefix, status, nextToken });
     const response = await throttle(taskDefReadRateLimiter, () => client.send(command));
@@ -264,7 +264,7 @@ export async function listTaskDefinitionFamilies(
   status: TaskDefinitionFamilyStatus = TaskDefinitionFamilyStatus.ACTIVE,
 ): Promise<string[]> {
   const result: string[] = [];
-  for (let nextToken: string | undefined; ; ) {
+  for (let nextToken: string | undefined; ;) {
     const client = getClient();
     const command = new ListTaskDefinitionFamiliesCommand({ familyPrefix, status, nextToken });
     const response = await throttle(taskDefReadRateLimiter, () => client.send(command));

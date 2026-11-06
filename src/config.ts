@@ -1,10 +1,9 @@
 import assert from "assert";
 import { readFile } from "fs/promises";
-import jsYaml from "js-yaml";
+import { load } from "js-yaml";
 import parseDuration from "parse-duration";
 import { join } from "path";
 import { CacheConfiguration } from "./cache.js";
-import logger from "./logger.js";
 import { isObject } from "./typeUtil.js";
 
 export interface Configuration {
@@ -53,11 +52,7 @@ let configuration: Configuration | undefined;
 export async function getConfiguration(): Promise<Configuration> {
   if (!configuration) {
     const yaml = await readConfiguration();
-    const body = jsYaml.load(yaml, {
-      onWarning(err) {
-        logger.warn(err);
-      },
-    });
+    const body = load(yaml);
     assert(isObject(body));
 
     let github: GithubConfiguration | undefined;

@@ -58,7 +58,7 @@ async function throttle<T>(rateLimiter: RateLimiter, task: () => Promise<T>): Pr
 async function findScalableTarget(arn: string): Promise<ScalableTarget | undefined> {
   const client = getClient();
   for (const serviceNamespace of Object.values(ServiceNamespace)) {
-    for (let NextToken: string | undefined; ; ) {
+    for (let NextToken: string | undefined; ;) {
       const command = new DescribeScalableTargetsCommand({ ServiceNamespace: serviceNamespace, NextToken });
       const response = await throttle(describeRateLimiter, () => client.send(command));
       const target = response.ScalableTargets?.find((t) => t.ScalableTargetARN === arn);

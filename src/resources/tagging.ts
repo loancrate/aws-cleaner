@@ -19,7 +19,7 @@ export type ResourceTagMappingWithArn = ResourceTagMapping & { ResourceARN: stri
 export async function getResources(): Promise<ResourceTagMappingWithArn[]> {
   const result: ResourceTagMappingWithArn[] = [];
   const rgtClient = getClient();
-  for (let PaginationToken: string | undefined, count = 0; ; ) {
+  for (let PaginationToken: string | undefined, count = 0; ;) {
     const command = new GetResourcesCommand({
       PaginationToken,
       ResourcesPerPage: 100,

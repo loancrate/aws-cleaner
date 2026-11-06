@@ -3,7 +3,6 @@ import type { Configuration } from "./config.js";
 
 const readFile = vi.hoisted(() => vi.fn<(path: string) => Promise<string>>());
 vi.mock("fs/promises", () => ({ readFile }));
-vi.mock("./logger.js", () => ({ default: { warn: vi.fn() } }));
 
 beforeEach(() => {
   vi.resetModules(); // getConfiguration caches its result
