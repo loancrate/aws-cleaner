@@ -28,7 +28,6 @@ import {
   InstanceState,
   InstanceStateName,
   InternetGateway,
-  IpPermission,
   NatGateway,
   NatGatewayState,
   NetworkInterface,
@@ -41,7 +40,6 @@ import {
   Subnet,
   TerminateInstancesCommand,
 } from "@aws-sdk/client-ec2";
-import { DependencyEnumeratorParams } from "../DependencyEnumerator.js";
 import { ResourceDescriberParams } from "../ResourceDescriber.js";
 import { ResourceDestroyerParams } from "../ResourceDestroyer.js";
 import { parseArn } from "../arn.js";
@@ -476,50 +474,6 @@ async function describeSecurityGroups(groupIds: string[]): Promise<SecurityGroup
       return [];
     }
     throw err;
-  }
-}
-
-export async function getSecurityGroupDependencies({
-  resourceId,
-}: Pick<DependencyEnumeratorParams, "resourceId">): Promise<string[]> {
-  const fullDeps = new Set<string>([resourceId]);
-  const sg = (await describeSecurityGroups([resourceId]))[0];
-  if (sg) {
-    const { VpcId } = sg;
-    for (let depGroups = [sg]; ;) {
-      const newDeps: string[] = [];
-      for (const depGroup of depGroups) {
-        addSecurityGroupDependencies(depGroup.IpPermissions, VpcId, fullDeps, newDeps);
-        addSecurityGroupDependencies(depGroup.IpPermissionsEgress, VpcId, fullDeps, newDeps);
-      }
-      if (!newDeps.length) {
-        break;
-      }
-      depGroups = await describeSecurityGroups(newDeps);
-    }
-  }
-  fullDeps.delete(resourceId);
-  return Array.from(fullDeps);
-}
-
-function addSecurityGroupDependencies(
-  IpPermissions: IpPermission[] | undefined,
-  VpcId: string | undefined,
-  fullDeps: Set<string>,
-  newDeps: string[],
-) {
-  if (IpPermissions) {
-    for (const ipp of IpPermissions) {
-      if (ipp.UserIdGroupPairs) {
-        for (const gp of ipp.UserIdGroupPairs) {
-          const { GroupId: groupId } = gp;
-          if (groupId && gp.VpcId === VpcId && !fullDeps.has(groupId)) {
-            fullDeps.add(groupId);
-            newDeps.push(groupId);
-          }
-        }
-      }
-    }
   }
 }
 

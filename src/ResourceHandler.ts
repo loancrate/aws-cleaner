@@ -1,4 +1,3 @@
-import { DependencyEnumerator } from "./DependencyEnumerator.js";
 import { ResourceDescriber } from "./ResourceDescriber.js";
 import { ResourceDestroyer } from "./ResourceDestroyer.js";
 import { deleteScalableTarget } from "./resources/applicationautoscaling.js";
@@ -84,7 +83,6 @@ import { ResourceType, ec2SecurityGroupRules, ecsTaskDefinitionFamily } from "./
 export interface ResourceHandler {
   kind: string;
   describer?: ResourceDescriber;
-  dependencyEnumerator?: DependencyEnumerator;
   destroyer?: ResourceDestroyer;
 }
 

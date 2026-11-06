@@ -1,4 +1,5 @@
 # The safety is on by default. Always do a dry-run first.
+# Each run covers a single AWS region, taken from AWS_REGION or your AWS profile.
 DRY_RUN: true
 
 # Whether to continue running if a resource cannot be deleted.

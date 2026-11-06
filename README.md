@@ -123,7 +123,7 @@ The following types are currently supported:
 
 This application is currently designed to be run from source,
 so start by cloning the repository at `https://github.com/loancrate/aws-cleaner.git`.
-It requires [Node.js](https://nodejs.org/en/) 20+.
+It requires [Node.js](https://nodejs.org/en/) 24+.
 If you're using the [Node Version Manager (nvm)](https://github.com/nvm-sh/nvm), just run `nvm install`.
 Then install package dependencies using `npm install`.
 All together, it looks something like this:
@@ -142,6 +142,9 @@ In particular, if you're using Terraform Cloud or environments corresponding to 
 you'll want to configure your access tokens, organization name, and repository.
 AWS credentials should come from `~/.aws/credentials` or environment variables
 (i.e. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`).
+Each run covers a single AWS region, taken from `AWS_REGION` or your AWS profile.
+To clean up several regions, run once per region, e.g. `AWS_REGION=us-west-2 npm start`.
+The account and region are logged at startup.
 By default, the application runs in dry-run mode, meaning it says what would be deleted instead of deleting anything.
 Always run a given configuration in dry-run mode first and examine the output before running again with dry-run disabled.
 

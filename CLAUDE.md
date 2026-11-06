@@ -75,7 +75,6 @@ interface ResourceHandler {
   kind: string; // Human-readable name
   describer?: ResourceDescriber; // Fetch description for logging
   destroyer?: ResourceDestroyer; // Execute deletion
-  dependencyEnumerator?: DependencyEnumerator; // Dynamic dependency discovery
 }
 ```
 
